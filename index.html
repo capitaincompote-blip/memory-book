@@ -30,7 +30,7 @@ button,input,select{font:inherit;color:inherit}
 
 /* Header */
 header{position:sticky;top:0;z-index:10;background:var(--bg);border-bottom:1px solid var(--line);padding:calc(10px + env(safe-area-inset-top)) 16px 10px}
-.wrap{max-width:1100px;margin:0 auto}
+.wrap{max-width:820px;margin:0 auto}
 .titlebar{display:flex;align-items:baseline;gap:10px;margin-bottom:10px}
 .titlebar h1{font-size:1.25rem;margin:0}
 .titlebar .count{color:var(--muted);font-size:.88rem}
@@ -52,15 +52,17 @@ header{position:sticky;top:0;z-index:10;background:var(--bg);border-bottom:1px s
 
 /* Cards */
 main{padding:16px 16px 110px}
-.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px}
+.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+@media (max-width:520px){ .grid{gap:8px} .card{height:118px} .face{padding:22px 6px 30px} .de{font-size:.86rem} .en{font-size:.82rem} .lab .lfull{display:none} .lab .lshort{display:inline} .note{font-size:.7rem} .lab{font-size:.56rem;left:7px;top:7px} .say{width:26px;height:26px;bottom:5px;right:5px;font-size:.7rem} .acts button{width:24px;height:24px;font-size:.8rem} }
 .card{position:relative;height:132px;perspective:900px;cursor:pointer}
 .inner{position:absolute;inset:0;transition:transform .45s;transform-style:preserve-3d}
 .card.on .inner{transform:rotateY(180deg)}
-.face{position:absolute;inset:0;border-radius:var(--r);backface-visibility:hidden;-webkit-backface-visibility:hidden;
+.face{position:absolute;inset:0;overflow:hidden;border-radius:var(--r);backface-visibility:hidden;-webkit-backface-visibility:hidden;
   display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:24px 12px 12px;border:1px solid var(--line)}
 .front{background:var(--card)}
 .back{background:var(--soft);transform:rotateY(180deg)}
-.de{font-size:1.08rem;font-weight:600;line-height:1.3;word-break:break-word}
+.de{font-size:1.08rem;font-weight:600;line-height:1.3;overflow-wrap:break-word;hyphens:auto;-webkit-hyphens:auto;max-width:100%}
+.lshort{display:none}
 .en{font-size:1rem;line-height:1.3}
 .note{font-size:.78rem;color:var(--muted);margin-top:6px}
 .lab{position:absolute;top:8px;left:10px;font-size:.66rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
@@ -107,6 +109,9 @@ main{padding:16px 16px 110px}
 #toast{position:fixed;left:50%;bottom:calc(92px + env(safe-area-inset-bottom));transform:translateX(-50%) translateY(10px);background:var(--accent);color:var(--accent-ink);
   padding:9px 16px;border-radius:999px;font-size:.9rem;opacity:0;transition:.25s;pointer-events:none;z-index:40}
 #toast.on{opacity:1;transform:translateX(-50%)}
+#voiceMsg{position:fixed;left:16px;right:16px;bottom:calc(92px + env(safe-area-inset-bottom));max-width:520px;margin:0 auto;background:var(--warn);border:1px solid var(--warn-line);color:var(--ink);
+  border-radius:12px;padding:12px 14px;font-size:.9rem;z-index:41;box-shadow:0 6px 20px rgba(0,0,0,.15)}
+select.tbtn{max-width:220px;background:var(--card)}
 </style>
 </head>
 <body>
@@ -121,6 +126,8 @@ main{padding:16px 16px 110px}
     <button class="tbtn" id="mineBtn">Only my words</button>
     <button class="tbtn" id="dirBtn"></button>
     <button class="tbtn" id="resetBtn">Turn all back</button>
+    <select class="tbtn" id="voiceSel" hidden aria-label="German voice"></select>
+    <button class="tbtn" id="voiceHelp" hidden>🔇 No German voice</button>
     <span class="legend"><span class="der">der</span> · <span class="die">die</span> · <span class="das">das</span> · <span class="pre">prefix</span></span>
   </div>
 </div></header>
@@ -145,6 +152,9 @@ main{padding:16px 16px 110px}
       <input id="f-note" placeholder="pl. die Hunde" autocomplete="off" spellcheck="false"></div>
     <div class="field"><label>Word type</label><div class="labels" id="f-labels"></div>
       <div class="hint">For nouns, write the article (der / die / das). For separable verbs, mark the prefix with | (an|rufen).</div></div>
+    <div class="dup" id="delConfirm" hidden>Delete this word from your Memory Book?
+      <div class="choice"><button class="btn sm" id="delYes" style="background:var(--danger);color:#fff">Delete</button><button class="btn sm alt" id="delNo">Keep it</button></div></div>
+    <p style="margin:0 0 8px"><button class="btn sm alt" id="resetWordBtn" hidden>Restore the original word</button></p>
     <div class="row">
       <button class="btn danger" id="delBtn" hidden>Delete</button>
       <button class="btn alt" id="cancelBtn">Cancel</button>
@@ -153,11 +163,13 @@ main{padding:16px 16px 110px}
   </div>
 </div>
 <div id="toast"></div>
+<div id="voiceMsg" hidden role="alert"></div>
 
 <script>
 /* ---------------- Data ---------------- */
+const SHORT = {"Noun":"Noun","Verb":"Verb","Separable verb":"Sep. verb","Adjective":"Adj.","Adverb":"Adv.","Preposition":"Prep.","Pronoun":"Pron.","Conjunction":"Conj.","Phrase":"Phrase","Other":"Other"};
 const LABELS = ["Noun","Verb","Separable verb","Adjective","Adverb","Preposition","Pronoun","Conjunction","Phrase","Other"];
-const BASE = [["arbeiten","to work","","Verb"],["backen","to bake","","Verb"],["begleiten","to accompany","","Verb"],["besprechen","to discuss","🦎 du besprichst","Verb"],["brauchen","to need","","Verb"],["bringen","to bring","","Verb"],["buchstabieren","to spell","Können Sie das buchstabieren?","Verb"],["dürfen","to be allowed to, may (modal)","Darf ich?","Verb"],["empfehlen","to recommend","🦎 du empfiehlst","Verb"],["erklären","to explain","","Verb"],["essen","to eat","🦎 du isst","Verb"],["fahren","to drive / to go (by vehicle)","🦎 du fährst","Verb"],["gefallen","to please","Das gefällt mir. = I like it.","Verb"],["geben","to give","🦎 du gibst","Verb"],["gehen","to go (on foot)","","Verb"],["haben","to have","ich habe, du hast, er hat","Verb"],["heißen","to be called","du heißt","Verb"],["helfen","to help","🦎 du hilfst","Verb"],["hören","to listen / to hear","","Verb"],["kochen","to cook","","Verb"],["kommen (aus)","to come (from)","Ich komme aus Frankreich.","Verb"],["können","can, to be able to (modal)","ich kann, er kann","Verb"],["langweilen","to bore","sich langweilen = to be bored","Verb"],["laufen","to run / to walk","🦎 du läufst","Verb"],["leben","to live (be alive, live a life)","","Verb"],["lernen","to learn","","Verb"],["lesen","to read","🦎 du liest","Verb"],["leuchten","to light up, to glow","","Verb"],["lieben","to love","","Verb"],["machen","to make / to do","","Verb"],["malen","to paint","","Verb"],["möchten","would like (modal)","ich möchte","Verb"],["mögen","to like (modal)","ich mag, er mag","Verb"],["müssen","must, to have to (modal)","ich muss","Verb"],["nehmen","to take","🦎 du nimmst","Verb"],["passen","to fit / to suit","Das passt!","Verb"],["reden","to talk","","Verb"],["rennen","to run (fast)","","Verb"],["riechen","to smell","","Verb"],["riechen nach","to smell like / of","Es riecht nach Kaffee.","Verb"],["schauen","to look","","Verb"],["scheinen","to shine","Die Sonne scheint.","Verb"],["schlafen","to sleep","🦎 du schläfst","Verb"],["schreiben","to write","","Verb"],["sehen","to see","🦎 du siehst","Verb"],["sein","to be","bin, bist, ist, sind, seid, sind","Verb"],["sollen","should, ought to (modal)","","Verb"],["sprechen","to speak","🦎 du sprichst","Verb"],["stören","to disturb","Störe ich?","Verb"],["studieren","to study (at university)","","Verb"],["suchen","to look for / to search","","Verb"],["tanzen","to dance","","Verb"],["tragen","to carry / to wear","🦎 du trägst","Verb"],["treffen","to meet","🦎 du triffst","Verb"],["treiben","to do (sport)","Sport treiben","Verb"],["trinken","to drink","","Verb"],["tun","to do","","Verb"],["vergessen","to forget","🦎 du vergisst","Verb"],["waschen","to wash","🦎 du wäschst","Verb"],["werden","to become","du wirst, er wird","Verb"],["wohnen (in)","to live (in)","Ich wohne in Colmar.","Verb"],["wollen","to want (modal)","⚠️ not “will”","Verb"],["zeichnen","to draw","","Verb"],["zeigen","to show","","Verb"],["ab|fahren","to depart","Der Zug fährt um 8 ab.","Separable verb"],["ab|holen","to pick up","Ich hole dich ab.","Separable verb"],["ab|trocknen","to dry (the dishes)","","Separable verb"],["ab|waschen","to wash up","","Separable verb"],["an|fangen","to begin","Der Film fängt an.","Separable verb"],["an|kommen","to arrive","","Separable verb"],["an|machen","to turn on","Mach das Licht an!","Separable verb"],["an|rufen","to call (phone)","Ich rufe dich an.","Separable verb"],["auf|hängen","to hang up","","Separable verb"],["auf|räumen","to tidy up","","Separable verb"],["auf|stehen","to get up","","Separable verb"],["aus|füllen","to fill out (a form)","","Separable verb"],["aus|leeren","to empty","","Separable verb"],["aus|wählen","to choose","","Separable verb"],["ein|kaufen","to shop","","Separable verb"],["ein|laden","to invite","Ich lade dich ein.","Separable verb"],["ein|schlafen","to fall asleep","","Separable verb"],["fern|sehen","to watch TV","Wir sehen fern.","Separable verb"],["mit|bringen","to bring along","","Separable verb"],["mit|kommen","to come along","Kommst du mit?","Separable verb"],["mit|nehmen","to take along","","Separable verb"],["teil|nehmen","to take part","","Separable verb"],["um|steigen","to change (trains / buses)","","Separable verb"],["vor|bereiten","to prepare","","Separable verb"],["zurück|fahren","to drive / go back","","Separable verb"],["zurück|kommen","to come back","","Separable verb"],["der Kopf","head","","Noun"],["der Mund","mouth","","Noun"],["der Arm","arm","","Noun"],["der Fuß","foot","","Noun"],["der Bauch","belly","","Noun"],["der Magen","stomach","","Noun"],["der Schmerz","pain / ache","pl. die Schmerzen","Noun"],["die Nase","nose","","Noun"],["die Hand","hand","","Noun"],["die Schulter","shoulder","","Noun"],["die Leber","liver","","Noun"],["die Augenbraue","eyebrow","","Noun"],["die Träne","tear (crying)","","Noun"],["das Auge","eye","pl. die Augen","Noun"],["das Ohr","ear","","Noun"],["das Bein","leg","","Noun"],["das Gehirn","brain","","Noun"],["der Hund","dog","","Noun"],["der Elefant","elephant","","Noun"],["der Papagei","parrot","","Noun"],["der Delfin","dolphin","","Noun"],["die Katze","cat","","Noun"],["die Robbe","seal","","Noun"],["die Ziege","goat","","Noun"],["die Qualle","jellyfish","","Noun"],["das Pferd","horse","","Noun"],["das Schaf","sheep","","Noun"],["das Lamm","lamb","","Noun"],["der Reis","rice","","Noun"],["der Pfeffer","pepper","","Noun"],["der Paprika","paprika (spice)","die Paprika = bell pepper","Noun"],["der Curry","curry","also: das Curry","Noun"],["der Zimt","cinnamon","","Noun"],["der Anis","anise","","Noun"],["der Kreuzkümmel","cumin","also: der Cumin","Noun"],["der Safran","saffron","","Noun"],["der Koriander","coriander","","Noun"],["der Dill","dill","","Noun"],["der Rosmarin","rosemary","","Noun"],["der Knoblauch","garlic","","Noun"],["die Kurkuma","turmeric","also: der Kurkuma","Noun"],["die Minze","mint","","Noun"],["die Petersilie","parsley","","Noun"],["die Zwiebel","onion","","Noun"],["die Zutat","ingredient","pl. die Zutaten","Noun"],["die Lebensmittel","food, groceries (pl.)","","Noun"],["das Salz","salt","","Noun"],["das Basilikum","basil","also: der Basilikum","Noun"],["das Gericht","dish, meal","","Noun"],["das Gewürz","spice","pl. die Gewürze","Noun"],["der Wind","wind","","Noun"],["der Nebel","fog","","Noun"],["der Mond","moon","","Noun"],["der Blitz","lightning (also: camera flash)","","Noun"],["der Donner","thunder","","Noun"],["die Sonne","sun","","Noun"],["die Wolke","cloud","","Noun"],["die Kälte","cold, coldness","","Noun"],["die Nässe","wetness","","Noun"],["der Stuhl","chair","","Noun"],["der Schirm","umbrella","","Noun"],["der Kuli","pen","short for der Kugelschreiber","Noun"],["der Kopfhörer","headphones","pl. die Kopfhörer","Noun"],["die Vase","vase","","Noun"],["die Tür","door","","Noun"],["die Uhr","clock / watch","","Noun"],["die Wäsche","laundry","","Noun"],["das Bild","picture, painting","","Noun"],["das Auto","car","","Noun"],["das Haus","house","","Noun"],["das Zuhause","home","","Noun"],["das Fahrrad","bike","lit. “drive-wheel”","Noun"],["der Hunger","hunger","Ich habe Hunger.","Noun"],["der Durst","thirst","Ich habe Durst.","Noun"],["die Angst","fear (everyday word)","Ich habe Angst.","Noun"],["die Furcht","fear (formal, literary)","","Noun"],["die Höhenangst","fear of heights","Höhe = height","Noun"],["die Hoffnung","hope","","Noun"],["die Zeit","time","","Noun"],["das Geld","money","","Noun"],["das Glück","luck, happiness","Viel Glück! = Good luck!","Noun"],["das Trinkgeld","tip (money)","","Noun"],["das Argument","argument (reason)","","Noun"],["der Künstler","artist","die Künstlerin (f)","Noun"],["der Sänger","singer","die Sängerin (f)","Noun"],["der Interpret","performer","","Noun"],["die Kunst","art","","Noun"],["die Ballade","ballad","","Noun"],["das Gedicht","poem","","Noun"],["der Friseur","hairdresser","","Noun"],["der Friseursalon","hair salon","","Noun"],["der Kunde","customer","pl. die Kunden","Noun"],["mein Mann","my husband","","Noun"],["meine Frau","my wife","","Noun"],["mein Freund","my boyfriend","","Noun"],["ein Freund von mir","a friend of mine","","Noun"],["blau","blue","","Adjective"],["rot","red","","Adjective"],["rosa","pink","","Adjective"],["pink","pink (bright)","","Adjective"],["grün","green","","Adjective"],["schwarz","black","","Adjective"],["gelb","yellow","","Adjective"],["lila","purple","","Adjective"],["orange","orange","","Adjective"],["silber","silver","","Adjective"],["gold","gold","","Adjective"],["grau","grey","","Adjective"],["weiß","white","","Adjective"],["braun","brown","","Adjective"],["blond","blond","","Adjective"],["einfach ↔ schwierig","simple, easy ↔ difficult","","Adjective"],["schnell ↔ langsam","fast ↔ slow","","Adjective"],["stark ↔ schwach","strong ↔ weak","","Adjective"],["höflich ↔ unhöflich","polite ↔ impolite","un- = not, like English un-","Adjective"],["formell ↔ informell","formal ↔ informal","","Adjective"],["hoch ↔ niedrig","high ↔ low","","Adjective"],["nett","nice","","Adjective"],["cool","cool","","Adjective"],["lustig","funny","","Adjective"],["witzig","funny, witty","","Adjective"],["süß","cute (also: sweet)","","Adjective"],["schön","pretty, beautiful","","Adjective"],["sympathisch","likeable, pleasant","false friend: not “sympathetic”","Adjective"],["großzügig","generous","","Adjective"],["unabhängig","independent","","Adjective"],["interessant","interesting","","Adjective"],["wichtig","important","","Adjective"],["neu","new","","Adjective"],["gleich","same, similar","","Adjective"],["süß","sweet","","Adjective"],["salzig","salty","das Salz","Adjective"],["sauer","sour","","Adjective"],["bitter","bitter","","Adjective"],["herzhaft","savoury, hearty","Herz = heart","Adjective"],["wolkig","cloudy","die Wolke","Adjective"],["sonnig","sunny","die Sonne","Adjective"],["windig","windy","der Wind","Adjective"],["neblig","foggy","der Nebel","Adjective"],["kalt","cold","die Kälte","Adjective"],["nass","wet","die Nässe","Adjective"],["günstig","cheap, good value","","Adjective"],["gratis","free (of charge)","","Adjective"],["laut","loud","","Adjective"],["kaputt","broken","","Adjective"],["voll","full, crowded","","Adjective"],["allein","alone","","Adjective"],["einsam","lonely","","Adjective"],["groß ↔ klein","tall ↔ short","","Adjective"],["schlank ↔ dick","slim ↔ fat","","Adjective"],["jung ↔ alt","young ↔ old","","Adjective"],["kurz ↔ lang","short ↔ long (hair)","","Adjective"],["lockig / glatt / wellig","curly / straight / wavy (hair)","","Adjective"],["kräftig ↔ schwach","strong, sturdy ↔ weak","","Adjective"],["sportlich / athletisch","sporty / athletic","","Adjective"],["dunkler / heller / blasser Teint","dark / fair / pale complexion","der Teint","Adjective"],["kahl / eine Glatze haben","bald / to be bald","","Adjective"],["der Bart","beard","","Adjective"],["der Schnauzbart","moustache","","Adjective"],["die Adlernase","aquiline nose","Adler = eagle 🦅","Adjective"],["die Hakennase","hooked nose","","Adjective"],["die Stupsnase","snub nose","","Adjective"],["morgens","in the morning(s)","","Adverb"],["mittags","at noon","","Adverb"],["nachmittags","in the afternoon(s)","","Adverb"],["abends","in the evening(s)","","Adverb"],["nachts","at night","","Adverb"],["vorgestern","the day before yesterday","","Adverb"],["morgen","tomorrow","","Adverb"],["übermorgen","the day after tomorrow","","Adverb"],["jetzt","now","","Adverb"],["gerade","right now, just","","Adverb"],["gleich","in a moment, right away","","Adverb"],["später","later","","Adverb"],["immer","always","","Adverb"],["meistens","usually, mostly","","Adverb"],["oft / häufig","often","","Adverb"],["täglich","daily","der Tag","Adverb"],["selten","rarely, seldom","","Adverb"],["nie","never","","Adverb"],["von Zeit zu Zeit","from time to time","","Adverb"],["noch","still / yet","","Adverb"],["viele","many","","Adverb"],["ein paar","a few","not “a pair”!","Adverb"],["fast","almost","false friend: not “fast” (= schnell)","Adverb"],["beide","both","","Adverb"],["nur","only","","Adverb"],["total","totally","","Adverb"],["eher","rather","","Adverb"],["natürlich","naturally, of course","","Adverb"],["bestimmt","certainly, surely","","Adverb"],["beruflich","professionally, for work","","Adverb"],["zusammen = gemeinsam","together","","Adverb"],["leise","quietly","","Adverb"],["hoffentlich","hopefully","die Hoffnung","Adverb"],["selber","yourself, by oneself","","Adverb"],["also","so, therefore","false friend: not “also” (= auch)","Adverb"],["aber","but","","Conjunction"],["denn","because","verb stays in position 2","Conjunction"],["weil","because","verb goes to the end","Conjunction"],["trotzdem","nevertheless, still","","Conjunction"],["nachdem","after (doing something)","verb goes to the end","Conjunction"],["bei + Dativ","at (someone's place), with","bei mir = at my place (French: chez moi)","Preposition"],["gegen + Akkusativ","against","gegen den Wind","Preposition"]];   // [german, english, note, label]
+const BASE = [["arbeiten","to work","","Verb"],["backen","to bake","","Verb"],["begleiten","to accompany","","Verb"],["besprechen","to discuss","🦎 du besprichst","Verb"],["brauchen","to need","","Verb"],["bringen","to bring","","Verb"],["buchstabieren","to spell","Können Sie das buchstabieren?","Verb"],["dürfen","to be allowed to, may (modal)","Darf ich?","Verb"],["empfehlen","to recommend","🦎 du empfiehlst","Verb"],["erklären","to explain","","Verb"],["essen","to eat","🦎 du isst","Verb"],["fahren","to drive / to go (by vehicle)","🦎 du fährst","Verb"],["gefallen","to please","Das gefällt mir. = I like it.","Verb"],["geben","to give","🦎 du gibst","Verb"],["gehen","to go (on foot)","","Verb"],["haben","to have","ich habe, du hast, er hat","Verb"],["heißen","to be called","du heißt","Verb"],["helfen","to help","🦎 du hilfst","Verb"],["hören","to listen / to hear","","Verb"],["kochen","to cook","","Verb"],["kommen (aus)","to come (from)","Ich komme aus Frankreich.","Verb"],["können","can, to be able to (modal)","ich kann, er kann","Verb"],["langweilen","to bore","sich langweilen = to be bored","Verb"],["laufen","to run / to walk","🦎 du läufst","Verb"],["leben","to live (be alive, live a life)","","Verb"],["lernen","to learn","","Verb"],["lesen","to read","🦎 du liest","Verb"],["leuchten","to light up, to glow","","Verb"],["lieben","to love","","Verb"],["machen","to make / to do","","Verb"],["malen","to paint","","Verb"],["möchten","would like (modal)","ich möchte","Verb"],["mögen","to like (modal)","ich mag, er mag","Verb"],["müssen","must, to have to (modal)","ich muss","Verb"],["nehmen","to take","🦎 du nimmst","Verb"],["passen","to fit / to suit","Das passt!","Verb"],["reden","to talk","","Verb"],["rennen","to run (fast)","","Verb"],["riechen","to smell","","Verb"],["riechen nach","to smell like / of","Es riecht nach Kaffee.","Verb"],["schauen","to look","","Verb"],["scheinen","to shine","Die Sonne scheint.","Verb"],["schlafen","to sleep","🦎 du schläfst","Verb"],["schreiben","to write","","Verb"],["sehen","to see","🦎 du siehst","Verb"],["sein","to be","bin, bist, ist, sind, seid, sind","Verb"],["sollen","should, ought to (modal)","","Verb"],["sprechen","to speak","🦎 du sprichst","Verb"],["stören","to disturb","Störe ich?","Verb"],["studieren","to study (at university)","","Verb"],["suchen","to look for / to search","","Verb"],["tanzen","to dance","","Verb"],["tragen","to carry / to wear","🦎 du trägst","Verb"],["treffen","to meet","🦎 du triffst","Verb"],["treiben","to do (sport)","Sport treiben","Verb"],["trinken","to drink","","Verb"],["tun","to do","","Verb"],["vergessen","to forget","🦎 du vergisst","Verb"],["waschen","to wash","🦎 du wäschst","Verb"],["werden","to become","du wirst, er wird","Verb"],["wohnen (in)","to live (in)","Ich wohne in Colmar.","Verb"],["wollen","to want (modal)","⚠️ not “will”","Verb"],["zeichnen","to draw","","Verb"],["zeigen","to show","","Verb"],["ab|fahren","to depart","Der Zug fährt um 8 ab.","Separable verb"],["ab|holen","to pick up","Ich hole dich ab.","Separable verb"],["ab|trocknen","to dry (the dishes)","","Separable verb"],["ab|waschen","to wash up","","Separable verb"],["an|fangen","to begin","Der Film fängt an.","Separable verb"],["an|kommen","to arrive","","Separable verb"],["an|machen","to turn on","Mach das Licht an!","Separable verb"],["an|rufen","to call (phone)","Ich rufe dich an.","Separable verb"],["auf|hängen","to hang up","","Separable verb"],["auf|räumen","to tidy up","","Separable verb"],["auf|stehen","to get up","","Separable verb"],["aus|füllen","to fill out (a form)","","Separable verb"],["aus|leeren","to empty","","Separable verb"],["aus|wählen","to choose","","Separable verb"],["ein|kaufen","to shop","","Separable verb"],["ein|laden","to invite","Ich lade dich ein.","Separable verb"],["ein|schlafen","to fall asleep","","Separable verb"],["fern|sehen","to watch TV","Wir sehen fern.","Separable verb"],["mit|bringen","to bring along","","Separable verb"],["mit|kommen","to come along","Kommst du mit?","Separable verb"],["mit|nehmen","to take along","","Separable verb"],["teil|nehmen","to take part","","Separable verb"],["um|steigen","to change (trains / buses)","","Separable verb"],["vor|bereiten","to prepare","","Separable verb"],["zurück|fahren","to drive / go back","","Separable verb"],["zurück|kommen","to come back","","Separable verb"],["der Kopf","head","","Noun"],["der Mund","mouth","","Noun"],["der Arm","arm","","Noun"],["der Fuß","foot","","Noun"],["der Bauch","belly","","Noun"],["der Magen","stomach","","Noun"],["der Schmerz","pain / ache","pl. die Schmerzen","Noun"],["die Nase","nose","","Noun"],["die Hand","hand","","Noun"],["die Schulter","shoulder","","Noun"],["die Leber","liver","","Noun"],["die Augenbraue","eyebrow","","Noun"],["die Träne","tear (crying)","","Noun"],["das Auge","eye","pl. die Augen","Noun"],["das Ohr","ear","","Noun"],["das Bein","leg","","Noun"],["das Gehirn","brain","","Noun"],["der Hund","dog","","Noun"],["der Elefant","elephant","","Noun"],["der Papagei","parrot","","Noun"],["der Delfin","dolphin","","Noun"],["die Katze","cat","","Noun"],["die Robbe","seal","","Noun"],["die Ziege","goat","","Noun"],["die Qualle","jellyfish","","Noun"],["das Pferd","horse","","Noun"],["das Schaf","sheep","","Noun"],["das Lamm","lamb","","Noun"],["der Reis","rice","","Noun"],["der Pfeffer","pepper","","Noun"],["der Paprika","paprika (spice)","die Paprika = bell pepper","Noun"],["der Curry","curry","also: das Curry","Noun"],["der Zimt","cinnamon","","Noun"],["der Anis","anise","","Noun"],["der Kreuzkümmel","cumin","also: der Cumin","Noun"],["der Safran","saffron","","Noun"],["der Koriander","coriander","","Noun"],["der Dill","dill","","Noun"],["der Rosmarin","rosemary","","Noun"],["der Knoblauch","garlic","","Noun"],["die Kurkuma","turmeric","also: der Kurkuma","Noun"],["die Minze","mint","","Noun"],["die Petersilie","parsley","","Noun"],["die Zwiebel","onion","","Noun"],["die Zutat","ingredient","pl. die Zutaten","Noun"],["die Lebensmittel","food, groceries (pl.)","","Noun"],["das Salz","salt","","Noun"],["das Basilikum","basil","also: der Basilikum","Noun"],["das Gericht","dish, meal","","Noun"],["das Gewürz","spice","pl. die Gewürze","Noun"],["der Wind","wind","","Noun"],["der Nebel","fog","","Noun"],["der Mond","moon","","Noun"],["der Blitz","lightning (also: camera flash)","","Noun"],["der Donner","thunder","","Noun"],["die Sonne","sun","","Noun"],["die Wolke","cloud","","Noun"],["die Kälte","cold, coldness","","Noun"],["die Nässe","wetness","","Noun"],["der Stuhl","chair","","Noun"],["der Schirm","umbrella","","Noun"],["der Kuli","pen","short for der Kugelschreiber","Noun"],["der Kopfhörer","headphones","pl. die Kopfhörer","Noun"],["die Vase","vase","","Noun"],["die Tür","door","","Noun"],["die Uhr","clock / watch","","Noun"],["die Wäsche","laundry","","Noun"],["das Bild","picture, painting","","Noun"],["das Auto","car","","Noun"],["das Haus","house","","Noun"],["das Zuhause","home","","Noun"],["das Fahrrad","bike","lit. “drive-wheel”","Noun"],["der Hunger","hunger","Ich habe Hunger.","Noun"],["der Durst","thirst","Ich habe Durst.","Noun"],["die Angst","fear (everyday word)","Ich habe Angst.","Noun"],["die Furcht","fear (formal, literary)","","Noun"],["die Höhenangst","fear of heights","Höhe = height","Noun"],["die Hoffnung","hope","","Noun"],["die Zeit","time","","Noun"],["das Geld","money","","Noun"],["das Glück","luck, happiness","Viel Glück! = Good luck!","Noun"],["das Trinkgeld","tip (money)","","Noun"],["das Argument","argument (reason)","","Noun"],["der Künstler","artist","die Künstlerin (f)","Noun"],["der Sänger","singer","die Sängerin (f)","Noun"],["der Interpret","performer","","Noun"],["die Kunst","art","","Noun"],["die Ballade","ballad","","Noun"],["das Gedicht","poem","","Noun"],["der Friseur","hairdresser","","Noun"],["der Friseursalon","hair salon","","Noun"],["der Kunde","customer","pl. die Kunden","Noun"],["mein Mann","my husband","","Noun"],["meine Frau","my wife","","Noun"],["mein Freund","my boyfriend","","Noun"],["ein Freund von mir","a friend of mine","","Noun"],["blau","blue","","Adjective"],["rot","red","","Adjective"],["rosa","pink","","Adjective"],["pink","pink (bright)","","Adjective"],["grün","green","","Adjective"],["schwarz","black","","Adjective"],["gelb","yellow","","Adjective"],["lila","purple","","Adjective"],["orange","orange","","Adjective"],["silber","silver","","Adjective"],["gold","gold","","Adjective"],["grau","grey","","Adjective"],["weiß","white","","Adjective"],["braun","brown","","Adjective"],["blond","blond","","Adjective"],["einfach ↔ schwierig","simple, easy ↔ difficult","","Adjective"],["schnell ↔ langsam","fast ↔ slow","","Adjective"],["stark ↔ schwach","strong ↔ weak","","Adjective"],["höflich ↔ unhöflich","polite ↔ impolite","un- = not, like English un-","Adjective"],["formell ↔ informell","formal ↔ informal","","Adjective"],["hoch ↔ niedrig","high ↔ low","","Adjective"],["nett","nice","","Adjective"],["cool","cool","","Adjective"],["lustig","funny","","Adjective"],["witzig","funny, witty","","Adjective"],["süß","cute (also: sweet)","","Adjective"],["schön","pretty, beautiful","","Adjective"],["sympathisch","likeable, pleasant","false friend: not “sympathetic”","Adjective"],["großzügig","generous","","Adjective"],["unabhängig","independent","","Adjective"],["interessant","interesting","","Adjective"],["wichtig","important","","Adjective"],["neu","new","","Adjective"],["gleich","same, similar","","Adjective"],["süß","sweet","","Adjective"],["salzig","salty","das Salz","Adjective"],["sauer","sour","","Adjective"],["bitter","bitter","","Adjective"],["herzhaft","savoury, hearty","Herz = heart","Adjective"],["wolkig","cloudy","die Wolke","Adjective"],["sonnig","sunny","die Sonne","Adjective"],["windig","windy","der Wind","Adjective"],["neblig","foggy","der Nebel","Adjective"],["kalt","cold","die Kälte","Adjective"],["nass","wet","die Nässe","Adjective"],["günstig","cheap, good value","","Adjective"],["gratis","free (of charge)","","Adjective"],["laut","loud","","Adjective"],["kaputt","broken","","Adjective"],["voll","full, crowded","","Adjective"],["allein","alone","","Adjective"],["einsam","lonely","","Adjective"],["groß ↔ klein","tall ↔ short","","Adjective"],["schlank ↔ dick","slim ↔ fat","","Adjective"],["jung ↔ alt","young ↔ old","","Adjective"],["kurz ↔ lang","short ↔ long (hair)","","Adjective"],["lockig / glatt / wellig","curly / straight / wavy (hair)","","Adjective"],["kräftig ↔ schwach","strong, sturdy ↔ weak","","Adjective"],["sportlich / athletisch","sporty / athletic","","Adjective"],["dunkler / heller / blasser Teint","dark / fair / pale complexion","der Teint","Adjective"],["kahl / eine Glatze haben","bald / to be bald","","Adjective"],["der Bart","beard","","Noun"],["der Schnauzbart","moustache","","Noun"],["die Adlernase","aquiline nose","Adler = eagle 🦅","Noun"],["die Hakennase","hooked nose","","Noun"],["die Stupsnase","snub nose","","Noun"],["morgens","in the morning(s)","","Adverb"],["mittags","at noon","","Adverb"],["nachmittags","in the afternoon(s)","","Adverb"],["abends","in the evening(s)","","Adverb"],["nachts","at night","","Adverb"],["vorgestern","the day before yesterday","","Adverb"],["morgen","tomorrow","","Adverb"],["übermorgen","the day after tomorrow","","Adverb"],["jetzt","now","","Adverb"],["gerade","right now, just","","Adverb"],["gleich","in a moment, right away","","Adverb"],["später","later","","Adverb"],["immer","always","","Adverb"],["meistens","usually, mostly","","Adverb"],["oft / häufig","often","","Adverb"],["täglich","daily","der Tag","Adverb"],["selten","rarely, seldom","","Adverb"],["nie","never","","Adverb"],["von Zeit zu Zeit","from time to time","","Adverb"],["noch","still / yet","","Adverb"],["viele","many","","Adverb"],["ein paar","a few","not “a pair”!","Adverb"],["fast","almost","false friend: not “fast” (= schnell)","Adverb"],["beide","both","","Adverb"],["nur","only","","Adverb"],["total","totally","","Adverb"],["eher","rather","","Adverb"],["natürlich","naturally, of course","","Adverb"],["bestimmt","certainly, surely","","Adverb"],["beruflich","professionally, for work","","Adverb"],["zusammen = gemeinsam","together","","Adverb"],["leise","quietly","","Adverb"],["hoffentlich","hopefully","die Hoffnung","Adverb"],["selber","yourself, by oneself","","Adverb"],["also","so, therefore","false friend: not “also” (= auch)","Adverb"],["aber","but","","Conjunction"],["denn","because","verb stays in position 2","Conjunction"],["weil","because","verb goes to the end","Conjunction"],["trotzdem","nevertheless, still","","Conjunction"],["nachdem","after (doing something)","verb goes to the end","Conjunction"],["bei + Dativ","at (someone's place), with","bei mir = at my place (French: chez moi)","Preposition"],["gegen + Akkusativ","against","gegen den Wind","Preposition"]];   // [german, english, note, label]
 
 const KEY = "deutsch_macht_spass_v2";   // same storage as the previous app, so saved words are kept
 const S = (()=>{ let d={}; try{ d=JSON.parse(localStorage.getItem(KEY)||"{}")||{}; }catch(e){} return d; })();
@@ -179,7 +191,13 @@ function deHTML(de){
   let h = escH(de).replace(/^(der|die|das)\b/i, a=>`<span class="${a.toLowerCase()}">${a}</span>`);
   return h.replace(/(^|\s)([a-zäöüß]+)\|/gi, (m,sp,pre)=>`${sp}<span class="pre">${pre}</span>`);
 }
-const speakText = de => String(de).replace(/\|/g,"").replace(/…|\.\.\./g,"").replace(/\s*\/\s*/g,", ").replace(/\+\s*\w+$/,"").trim();
+const speakText = de => String(de)
+  .replace(/\|/g,"")                        // ab|holen -> abholen
+  .replace(/\+\s*(Dativ|Akkusativ|Genitiv|Nominativ)\b/gi,"")   // grammar tags are not spoken
+  .replace(/[()]/g," ")                     // kommen (aus) -> kommen aus
+  .replace(/\s*(↔|=|\/|;)\s*/g,", ")        // pairs and alternatives become a short pause
+  .replace(/…|\.\.\./g,"")
+  .replace(/\s+/g," ").replace(/^[,\s]+|[,\s]+$/g,"").trim();
 
 /* ---------------- Automatic label for words saved before labels existed ---------------- */
 const PRONOUNS = "ich du er sie es wir ihr mich dich ihn uns euch mir dir ihm ihnen man jemand niemand etwas nichts alles mein dein sein unser euer".split(" ");
@@ -206,7 +224,7 @@ if(migrated) save();
 /* ---------------- Index of all words ---------------- */
 let ALL = [];
 function buildIndex(){
-  ALL = BASE.map((r,i)=>({de:r[0], en:r[1], note:r[2], label:r[3], mine:false, id:"b"+i}))
+  ALL = BASE.map((r,i)=>{ if(S.baseDel.includes(i)) return null; const e=S.baseEdit[i]||r; return {de:e[0], en:e[1], note:e[2]||"", label:e[3], mine:false, id:"b"+i}; }).filter(Boolean)
     .concat(S.myWords.map((r,i)=>({de:r[0], en:r[1], note:r[2]||"", label:r[4], mine:true, id:"m"+i, idx:i})));
   ALL.forEach(w=>{ w.k = deKey(w.de); w.kA = fold(w.de.replace(ARTICLE,""), false); w.e = enKey(w.en);
     w.keys = [w.k, ...String(w.de).split(/\s*(?:↔|\/|,)\s*/).map(deKey)].filter(Boolean); });
@@ -217,12 +235,12 @@ function buildIndex(){
 let curLabel = "", onlyMine = false, flashId = null;
 
 function cardHTML(w){
-  const deSide = `<div class="de">${deHTML(w.de)}</div>`;
+  const deSide = `<div class="de" lang="de">${deHTML(w.de)}</div>`;
   const enSide = `<div class="en">${escH(w.en)}</div>${w.note?`<div class="note">${escH(w.note)}</div>`:""}`;
   const [f,b] = S.mbRev ? [enSide, deSide] : [deSide, enSide];
-  const lab = `<span class="lab">${w.mine?'<span class="mine-dot"></span>':""}${escH(w.label)}</span>`;
+  const lab = `<span class="lab">${w.mine?'<span class="mine-dot"></span>':""}<span class="lfull">${escH(w.label)}</span><span class="lshort">${escH(SHORT[w.label]||w.label)}</span></span>`;
   const say = `<button class="say" data-say="${escH(speakText(w.de))}" aria-label="Listen">🔊</button>`;
-  const acts = w.mine ? `<div class="acts"><button data-edit="${w.idx}" aria-label="Edit">✎</button></div>` : "";
+  const acts = `<div class="acts"><button data-edit="${w.id}" aria-label="Edit">✎</button></div>`;
   return `<div class="card${w.id===flashId?' flash':''}" data-id="${w.id}">${acts}<div class="inner">
     <div class="face front">${lab}${f}${say}</div><div class="face back">${lab}${b}${say}</div></div></div>`;
 }
@@ -254,51 +272,99 @@ function render(){
   document.getElementById("dirBtn").textContent = S.mbRev ? "English first" : "German first";
 }
 
-/* ---------------- Audio ---------------- */
-let deVoice = null;
-function pickVoice(){ const vs = speechSynthesis.getVoices(); deVoice = vs.find(v=>/de[-_]DE/i.test(v.lang)&&/google|natural|neural|premium|enhanced/i.test(v.name)) || vs.find(v=>/^de/i.test(v.lang)) || null; }
-if("speechSynthesis" in window){ pickVoice(); speechSynthesis.onvoiceschanged = pickVoice; }
+/* ---------------- Audio: German voice only ---------------- */
+const HAS_TTS = "speechSynthesis" in window;
+let deVoices = [], deVoice = null;
+function voiceScore(v){
+  let sc = 0;
+  if(/^de[-_]DE$/i.test(v.lang)) sc += 40; else if(/^de[-_](AT|CH)$/i.test(v.lang)) sc += 25; else if(/^de\b/i.test(v.lang)) sc += 20;
+  if(/natural|neural|premium|enhanced|wavenet/i.test(v.name)) sc += 30;
+  if(/google/i.test(v.name)) sc += 20;
+  if(/katja|conrad|amala|killian|seraphina|florian|anna|helena|petra|markus|yannick/i.test(v.name)) sc += 10;
+  if(v.localService) sc += 5;
+  return sc;
+}
+function loadVoices(){
+  if(!HAS_TTS) return;
+  deVoices = speechSynthesis.getVoices().filter(v=>/^de\b|^de[-_]/i.test(v.lang)).sort((a,b)=>voiceScore(b)-voiceScore(a));
+  deVoice = deVoices.find(v=>v.name===S.voiceName) || deVoices[0] || null;
+  renderVoiceSel();
+}
+function renderVoiceSel(){
+  const sel = document.getElementById("voiceSel"); if(!sel) return;
+  if(!HAS_TTS || !deVoices.length){ sel.hidden = true; document.getElementById("voiceHelp").hidden = false; return; }
+  document.getElementById("voiceHelp").hidden = true; sel.hidden = false;
+  sel.innerHTML = deVoices.map(v=>`<option value="${escH(v.name)}"${deVoice&&v.name===deVoice.name?" selected":""}>🔊 ${escH(v.name.replace(/^(Microsoft|Google)\s+/,""))} (${escH(v.lang)})</option>`).join("");
+}
+if(HAS_TTS){ loadVoices(); speechSynthesis.onvoiceschanged = loadVoices; setTimeout(loadVoices, 500); setTimeout(loadVoices, 2000); }
+function voiceHelpText(){
+  const ua = navigator.userAgent;
+  if(/Android/i.test(ua)) return "No German voice on this phone. Open Settings → System → Languages → Text-to-speech output → Google (⚙) → Install voice data → Deutsch (Deutschland). Then reopen the app.";
+  if(/iPhone|iPad|iPod/i.test(ua)) return "No German voice on this device. Open Settings → Accessibility → Spoken Content → Voices → German, and download a voice (for example Anna, Enhanced). Then reopen the app.";
+  if(/Windows/i.test(ua)) return "No German voice found. Use Chrome or Edge with internet, or add one: Settings → Time & language → Speech → Add voices → Deutsch.";
+  if(/Mac/i.test(ua)) return "No German voice found. Open System Settings → Accessibility → Spoken Content → System voice → Manage voices → German.";
+  return "No German voice found on this device. Install a German text-to-speech voice in your system settings.";
+}
 function speak(t){
-  if(!("speechSynthesis" in window)){ toast("Audio is not available in this browser"); return; }
-  speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(t); u.lang="de-DE"; u.rate=.9; if(deVoice) u.voice=deVoice; speechSynthesis.speak(u);
+  if(!HAS_TTS){ toast("Audio is not available in this browser"); return; }
+  if(!deVoice) loadVoices();
+  if(!deVoice){ alertBox(voiceHelpText()); return; }    // never read German with a French or English voice
+  speechSynthesis.cancel();
+  setTimeout(()=>{
+    const u = new SpeechSynthesisUtterance(t);
+    u.voice = deVoice; u.lang = deVoice.lang; u.rate = .85; u.pitch = 1;
+    u.onerror = e=>{ if(e.error!=="interrupted" && e.error!=="canceled") toast(deVoice.localService ? "Audio error, try again" : "This voice needs internet. Choose another German voice."); };
+    speechSynthesis.speak(u);
+  }, 60);
+}
+function alertBox(msg){
+  const b = document.getElementById("voiceMsg"); b.textContent = msg; b.hidden = false;
+  clearTimeout(alertBox.t); alertBox.t = setTimeout(()=>b.hidden=true, 12000);
 }
 
 /* ---------------- Toast ---------------- */
 let tT; function toast(m){ const t=document.getElementById("toast"); t.textContent=m; t.classList.add("on"); clearTimeout(tT); tT=setTimeout(()=>t.classList.remove("on"),1800); }
 
 /* ---------------- Add / edit sheet ---------------- */
-let editIdx = null, curFormLabel = "", dupAccepted = false;
+let editId = null, curFormLabel = "", dupAccepted = false;   // editId: "b12" (built-in word) or "m3" (my word)
 const $ = id => document.getElementById(id);
+if(!S.baseEdit || typeof S.baseEdit!=="object") S.baseEdit = {};   // edited built-in words: index -> [de,en,note,label]
+if(!Array.isArray(S.baseDel)) S.baseDel = [];                        // deleted built-in words: indexes
+function rowOf(id){
+  const i = +id.slice(1);
+  if(id[0]==="m"){ const r=S.myWords[i]; return r && [r[0],r[1],r[2]||"",r[4]]; }
+  return S.baseEdit[i] || BASE[i];
+}
 function renderFormLabels(){
   $("f-labels").innerHTML = LABELS.map(l=>`<button type="button" class="chip${curFormLabel===l?' on':''}" data-flabel="${l}">${l}</button>`).join("");
 }
-function openSheet(idx){
-  editIdx = (idx==null) ? null : idx; dupAccepted = false;
-  const r = editIdx!=null ? S.myWords[editIdx] : ["","","","",""];
+function openSheet(id){
+  editId = id || null; dupAccepted = false;
+  const r = editId ? rowOf(editId) : ["","","",""];
   $("f-de").value = r[0]; $("f-en").value = r[1]; $("f-note").value = r[2]||"";
-  curFormLabel = editIdx!=null ? r[4] : "";
-  $("sheetTitle").textContent = editIdx!=null ? "Edit word" : "Add a word";
-  $("saveBtn").textContent = editIdx!=null ? "Save" : "Add";
-  $("delBtn").hidden = editIdx==null;
+  curFormLabel = editId ? r[3] : "";
+  $("sheetTitle").textContent = editId ? "Edit word" : "Add a word";
+  $("saveBtn").textContent = editId ? "Save" : "Add";
+  $("delBtn").hidden = !editId;
+  $("resetWordBtn").hidden = !(editId && editId[0]==="b" && S.baseEdit[+editId.slice(1)]);
   renderFormLabels(); $("dupBox").innerHTML = "";
   $("overlay").hidden = false;
   setTimeout(()=>$("f-de").focus(), 60);
-  if(editIdx!=null) checkDup(false);
+  if(editId) checkDup(false);
 }
-function closeSheet(){ $("overlay").hidden = true; editIdx = null; }
+function closeSheet(){ $("overlay").hidden = true; editId = null; $("delConfirm").hidden = true; }
 function findDups(de){
   const k = deKey(de); if(!k) return [];
-  return ALL.filter(w=>w.keys.includes(k) && !(w.mine && w.idx===editIdx));
+  return ALL.filter(w=>w.keys.includes(k) && w.id!==editId);
 }
 function dupList(d){ return `<ul>${d.map(w=>`<li>${deHTML(w.de)} — ${escH(w.en)} <span style="color:var(--muted)">(${escH(w.label)}${w.mine?", my word":", built-in"})</span></li>`).join("")}</ul>`; }
 function checkDup(strong){
   const d = findDups($("f-de").value);
   if(!d.length){ $("dupBox").innerHTML = ""; return d; }
-  const firstMine = d.find(w=>w.mine);
   $("dupBox").innerHTML = `<div class="dup"><b>Already in your Memory Book:</b>${dupList(d)}
     ${strong ? `<div class="choice">
-      <button class="btn sm" id="dupAdd">${editIdx!=null?"Save anyway":"Add anyway"}</button>
-      ${firstMine && editIdx==null ? `<button class="btn sm alt" id="dupEdit" data-i="${firstMine.idx}">Edit the existing one</button>`:""}
+      <button class="btn sm" id="dupAdd">${editId?"Save anyway":"Add anyway"}</button>
+      ${!editId ? `<button class="btn sm alt" id="dupEdit" data-id="${d[0].id}">Edit the existing one</button>`:""}
       <button class="btn sm alt" id="dupCancel">Cancel</button></div>` : ""}</div>`;
   return d;
 }
@@ -309,30 +375,37 @@ function insertCh(ch){
   if(inp.id==="f-de"){ dupAccepted=false; checkDup(false); }
 }
 let lastInput = null;
+function afterChange(id, msg){
+  save(); buildIndex(); closeSheet();
+  flashId = id;
+  const target = ALL.find(w=>w.id===flashId);
+  if(target && !matches(target, $("q").value.trim())){ $("q").value=""; curLabel=""; onlyMine=false; }
+  render();
+  const el = document.querySelector(`.card[data-id="${flashId}"]`); if(el) el.scrollIntoView({block:"center",behavior:"smooth"});
+  setTimeout(()=>{ flashId=null; const c=document.querySelector(".card.flash"); if(c) c.classList.remove("flash"); }, 2500);
+  toast(msg);
+}
 function saveWord(){
   const de = $("f-de").value.trim(), en = $("f-en").value.trim(), note = $("f-note").value.trim();
   if(!de){ toast("Write the German word"); $("f-de").focus(); return; }
   if(!en){ toast("Write the English translation"); $("f-en").focus(); return; }
   if(!curFormLabel){ toast("Choose the word type"); $("f-labels").scrollIntoView({block:"center",behavior:"smooth"}); return; }
   if(!dupAccepted && findDups(de).length){ checkDup(true); $("dupBox").scrollIntoView({block:"center",behavior:"smooth"}); return; }
-  let i;
-  if(editIdx!=null){ const old=S.myWords[editIdx]; S.myWords[editIdx]=[de,en,note,old[3]||"",curFormLabel]; i=editIdx; }
-  else { S.myWords.push([de,en,note,"",curFormLabel]); i=S.myWords.length-1; }
-  const wasEdit = editIdx!=null;
-  save(); buildIndex(); closeSheet();
-  flashId = "m"+i;
-  const target = ALL.find(w=>w.id===flashId);
-  if(target && !matches(target, $("q").value.trim())){ $("q").value=""; curLabel=""; }
-  render();
-  const el = document.querySelector(`.card[data-id="${flashId}"]`); if(el) el.scrollIntoView({block:"center",behavior:"smooth"});
-  setTimeout(()=>{ flashId=null; const c=document.querySelector(".card.flash"); if(c) c.classList.remove("flash"); }, 2500);
-  toast(wasEdit ? "Word updated" : "Word added");
+  if(editId && editId[0]==="b"){ S.baseEdit[+editId.slice(1)] = [de,en,note,curFormLabel]; afterChange(editId, "Word updated"); return; }
+  if(editId){ const i=+editId.slice(1), old=S.myWords[i]; S.myWords[i]=[de,en,note,old[3]||"",curFormLabel]; afterChange(editId, "Word updated"); return; }
+  S.myWords.push([de,en,note,"",curFormLabel]); afterChange("m"+(S.myWords.length-1), "Word added");
 }
 function deleteWord(){
-  if(editIdx==null) return;
-  const r = S.myWords[editIdx];
-  if(!confirm(`Delete “${r[0].replace(/\|/g,"")}”?`)) return;
-  S.myWords.splice(editIdx,1); save(); buildIndex(); closeSheet(); render(); toast("Word deleted");
+  if(!editId) return;
+  if($("delConfirm").hidden){ $("delConfirm").hidden = false; $("delConfirm").scrollIntoView({block:"center",behavior:"smooth"}); return; }
+  const i = +editId.slice(1);
+  if(editId[0]==="b"){ if(!S.baseDel.includes(i)) S.baseDel.push(i); delete S.baseEdit[i]; }
+  else S.myWords.splice(i,1);
+  save(); buildIndex(); closeSheet(); render(); toast("Word deleted");
+}
+function resetBaseWord(){
+  if(!editId || editId[0]!=="b") return;
+  const id = editId; delete S.baseEdit[+id.slice(1)]; afterChange(id, "Original word restored");
 }
 
 /* ---------------- Events ---------------- */
@@ -341,11 +414,17 @@ $("q").addEventListener("input", render);
 $("qclear").onclick = ()=>{ $("q").value=""; render(); $("q").focus(); };
 $("mineBtn").onclick = ()=>{ onlyMine=!onlyMine; render(); };
 $("dirBtn").onclick = ()=>{ S.mbRev=!S.mbRev; save(); render(); };
+$("voiceSel").onchange = e=>{ S.voiceName = e.target.value; save(); loadVoices(); speak("Guten Tag! Ich spreche Deutsch."); };
+$("voiceHelp").onclick = ()=>alertBox(voiceHelpText());
+$("voiceMsg").onclick = ()=>$("voiceMsg").hidden = true;
 $("resetBtn").onclick = ()=>document.querySelectorAll(".card.on").forEach(c=>c.classList.remove("on"));
 $("fab").onclick = ()=>openSheet(null);
 $("closeBtn").onclick = $("cancelBtn").onclick = closeSheet;
 $("saveBtn").onclick = saveWord;
 $("delBtn").onclick = deleteWord;
+$("delYes").onclick = deleteWord;
+$("delNo").onclick = ()=>$("delConfirm").hidden = true;
+$("resetWordBtn").onclick = resetBaseWord;
 $("overlay").addEventListener("click", e=>{ if(e.target.id==="overlay") closeSheet(); });
 ["f-de","f-en","f-note"].forEach(id=>{
   $(id).addEventListener("focus", e=>lastInput=e.target);
@@ -356,12 +435,12 @@ document.addEventListener("keydown", e=>{ if(e.key==="Escape" && !$("overlay").h
 document.addEventListener("click", e=>{
   const t = e.target;
   const say = t.closest(".say"); if(say){ e.stopPropagation(); speak(say.dataset.say); return; }
-  const ed = t.closest("[data-edit]"); if(ed){ openSheet(+ed.dataset.edit); return; }
+  const ed = t.closest("[data-edit]"); if(ed){ e.stopPropagation(); openSheet(ed.dataset.edit); return; }
   const ch = t.closest("[data-ch]"); if(ch){ e.preventDefault(); insertCh(ch.dataset.ch); return; }
   const fl = t.closest("[data-flabel]"); if(fl){ curFormLabel=fl.dataset.flabel; renderFormLabels(); return; }
   const lb = t.closest("[data-label]"); if(lb){ curLabel=lb.dataset.label; render(); return; }
   if(t.id==="dupAdd"){ dupAccepted=true; saveWord(); return; }
-  if(t.id==="dupEdit"){ openSheet(+t.dataset.i); return; }
+  if(t.id==="dupEdit"){ openSheet(t.dataset.id); return; }
   if(t.id==="dupCancel"){ closeSheet(); return; }
   const card = t.closest(".card"); if(card) card.classList.toggle("on");
 });
