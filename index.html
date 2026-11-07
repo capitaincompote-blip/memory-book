@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Memory Book · Deutsch</title>
+<meta name="theme-color" content="#24272e">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Memory Book">
+<style>
+:root{
+  --bg:#f6f6f4; --card:#fff; --ink:#22242a; --muted:#6f727a; --line:#e3e3df; --soft:#efefeb;
+  --accent:#24272e; --accent-ink:#fff; --warn:#fff4dc; --warn-line:#e7b54a; --danger:#c9443d;
+  --der:#2f6fd6; --die:#d6423b; --das:#2f9a5a; --pre:#c76a00;
+  --r:14px;
+}
+@media (prefers-color-scheme:dark){
+  :root{ --bg:#16181c; --card:#20232a; --ink:#e9eaee; --muted:#9a9ea8; --line:#30343c; --soft:#2a2e36;
+    --accent:#e9eaee; --accent-ink:#16181c; --warn:#3a3020; --warn-line:#a8812f;
+    --der:#6d9cf0; --die:#f07a72; --das:#5cc48a; --pre:#f0a040; }
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--ink);line-height:1.45;-webkit-tap-highlight-color:transparent}
+button,input,select{font:inherit;color:inherit}
+.der{color:var(--der);font-weight:700}.die{color:var(--die);font-weight:700}.das{color:var(--das);font-weight:700}
+.pre{color:var(--pre);font-weight:800}
+
+/* Header */
+header{position:sticky;top:0;z-index:10;background:var(--bg);border-bottom:1px solid var(--line);padding:calc(10px + env(safe-area-inset-top)) 16px 10px}
+.wrap{max-width:1100px;margin:0 auto}
+.titlebar{display:flex;align-items:baseline;gap:10px;margin-bottom:10px}
+.titlebar h1{font-size:1.25rem;margin:0}
+.titlebar .count{color:var(--muted);font-size:.88rem}
+.search{position:relative}
+.search input{width:100%;border:1px solid var(--line);background:var(--card);border-radius:12px;padding:11px 40px 11px 14px;font-size:1rem;outline:none}
+.search input:focus{border-color:var(--ink)}
+.search input::-webkit-search-cancel-button{-webkit-appearance:none;display:none}
+.search .clear{position:absolute;right:6px;top:50%;transform:translateY(-50%);border:0;background:none;font-size:1.2rem;color:var(--muted);cursor:pointer;width:32px;height:32px}
+.chips{display:flex;gap:6px;overflow-x:auto;padding:10px 0 2px;scrollbar-width:none}
+.chips::-webkit-scrollbar{display:none}
+.chip{flex:none;border:1px solid var(--line);background:var(--card);border-radius:999px;padding:6px 12px;font-size:.86rem;cursor:pointer;white-space:nowrap}
+.chip small{color:var(--muted);margin-left:4px}
+.chip.on{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.chip.on small{color:inherit;opacity:.7}
+.tools{display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap}
+.tbtn{border:1px solid var(--line);background:var(--card);border-radius:10px;padding:6px 11px;font-size:.84rem;cursor:pointer}
+.tbtn.on{border-color:var(--ink)}
+.tools .legend{margin-left:auto;font-size:.8rem;color:var(--muted)}
+
+/* Cards */
+main{padding:16px 16px 110px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px}
+.card{position:relative;height:132px;perspective:900px;cursor:pointer}
+.inner{position:absolute;inset:0;transition:transform .45s;transform-style:preserve-3d}
+.card.on .inner{transform:rotateY(180deg)}
+.face{position:absolute;inset:0;border-radius:var(--r);backface-visibility:hidden;-webkit-backface-visibility:hidden;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:24px 12px 12px;border:1px solid var(--line)}
+.front{background:var(--card)}
+.back{background:var(--soft);transform:rotateY(180deg)}
+.de{font-size:1.08rem;font-weight:600;line-height:1.3;word-break:break-word}
+.en{font-size:1rem;line-height:1.3}
+.note{font-size:.78rem;color:var(--muted);margin-top:6px}
+.lab{position:absolute;top:8px;left:10px;font-size:.66rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.mine-dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--pre);margin-right:5px;vertical-align:middle}
+.say{position:absolute;bottom:8px;right:8px;border:0;background:var(--soft);border-radius:50%;width:30px;height:30px;cursor:pointer;font-size:.8rem}
+.back .say{background:var(--card)}
+.acts{position:absolute;top:4px;right:4px;display:flex;gap:2px;z-index:2}
+.acts button{border:0;background:none;color:var(--muted);width:28px;height:28px;border-radius:8px;cursor:pointer;font-size:.9rem}
+.acts button:hover{background:var(--soft);color:var(--ink)}
+.card.on .acts{display:none}
+.card.flash .front{box-shadow:0 0 0 3px var(--pre)}
+.empty{text-align:center;color:var(--muted);padding:40px 10px}
+
+/* Add button */
+.fab{position:fixed;right:20px;bottom:calc(20px + env(safe-area-inset-bottom));z-index:20;width:60px;height:60px;border-radius:50%;border:0;
+  background:var(--accent);color:var(--accent-ink);font-size:2rem;line-height:1;cursor:pointer;box-shadow:0 6px 20px rgba(0,0,0,.25)}
+
+/* Sheet */
+.overlay{position:fixed;inset:0;z-index:30;background:rgba(0,0,0,.4);display:flex;align-items:flex-end;justify-content:center}
+.overlay[hidden]{display:none}
+.sheet{background:var(--card);width:100%;max-width:520px;border-radius:18px 18px 0 0;padding:18px 18px calc(18px + env(safe-area-inset-bottom));max-height:92vh;overflow-y:auto}
+@media (min-width:700px){ .overlay{align-items:center} .sheet{border-radius:18px} }
+.sheet h2{margin:0 0 14px;font-size:1.15rem;display:flex;align-items:center}
+.sheet h2 .x{margin-left:auto;border:0;background:none;font-size:1.4rem;cursor:pointer;color:var(--muted)}
+.field{margin-bottom:12px}
+.field label{display:block;font-size:.8rem;font-weight:600;color:var(--muted);margin-bottom:4px}
+.field input{width:100%;border:1px solid var(--line);background:var(--bg);border-radius:10px;padding:10px 12px;font-size:1rem;outline:none}
+.field input:focus{border-color:var(--ink)}
+.letters{display:flex;gap:6px;margin:-4px 0 12px}
+.letters button{border:1px solid var(--line);background:var(--bg);border-radius:8px;width:38px;height:34px;cursor:pointer;font-weight:700}
+.labels{display:flex;flex-wrap:wrap;gap:6px}
+.labels .chip{background:var(--bg)}
+.labels .chip.on{background:var(--accent)}
+.hint{font-size:.8rem;color:var(--muted);margin-top:4px}
+.dup{background:var(--warn);border:1px solid var(--warn-line);border-radius:10px;padding:10px 12px;font-size:.9rem;margin:4px 0 12px}
+.dup ul{margin:6px 0 0;padding-left:18px}
+.dup .choice{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.row{display:flex;gap:8px;margin-top:6px}
+.btn{border:0;border-radius:10px;padding:11px 16px;font-weight:600;cursor:pointer;background:var(--accent);color:var(--accent-ink)}
+.btn.alt{background:var(--soft);color:var(--ink)}
+.btn.danger{background:none;color:var(--danger);margin-right:auto;padding-left:0}
+.btn.sm{padding:7px 12px;font-size:.88rem}
+.row .btn.main{flex:1}
+#toast{position:fixed;left:50%;bottom:calc(92px + env(safe-area-inset-bottom));transform:translateX(-50%) translateY(10px);background:var(--accent);color:var(--accent-ink);
+  padding:9px 16px;border-radius:999px;font-size:.9rem;opacity:0;transition:.25s;pointer-events:none;z-index:40}
+#toast.on{opacity:1;transform:translateX(-50%)}
+</style>
+</head>
+<body>
+<header><div class="wrap">
+  <div class="titlebar"><h1>Memory Book</h1><span class="count" id="count"></span></div>
+  <div class="search">
+    <input id="q" type="search" placeholder="Search in German or English" autocomplete="off" autocapitalize="off" spellcheck="false">
+    <button class="clear" id="qclear" hidden aria-label="Clear search">×</button>
+  </div>
+  <div class="chips" id="chips"></div>
+  <div class="tools">
+    <button class="tbtn" id="mineBtn">Only my words</button>
+    <button class="tbtn" id="dirBtn"></button>
+    <button class="tbtn" id="resetBtn">Turn all back</button>
+    <span class="legend"><span class="der">der</span> · <span class="die">die</span> · <span class="das">das</span> · <span class="pre">prefix</span></span>
+  </div>
+</div></header>
+
+<main><div class="wrap">
+  <div class="grid" id="grid"></div>
+  <p class="empty" id="empty" hidden>No word found.</p>
+</div></main>
+
+<button class="fab" id="fab" aria-label="Add a word">+</button>
+
+<div class="overlay" id="overlay" hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
+    <h2><span id="sheetTitle">Add a word</span><button class="x" id="closeBtn" aria-label="Close">×</button></h2>
+    <div class="field"><label for="f-de">German</label>
+      <input id="f-de" placeholder="der Hund · ab|holen" autocomplete="off" autocapitalize="off" spellcheck="false"></div>
+    <div class="letters" id="letters"></div>
+    <div id="dupBox"></div>
+    <div class="field"><label for="f-en">English</label>
+      <input id="f-en" placeholder="dog · to pick up" autocomplete="off"></div>
+    <div class="field"><label for="f-note">Note (optional)</label>
+      <input id="f-note" placeholder="pl. die Hunde" autocomplete="off" spellcheck="false"></div>
+    <div class="field"><label>Word type</label><div class="labels" id="f-labels"></div>
+      <div class="hint">For nouns, write the article (der / die / das). For separable verbs, mark the prefix with | (an|rufen).</div></div>
+    <div class="row">
+      <button class="btn danger" id="delBtn" hidden>Delete</button>
+      <button class="btn alt" id="cancelBtn">Cancel</button>
+      <button class="btn main" id="saveBtn">Add</button>
+    </div>
+  </div>
+</div>
+<div id="toast"></div>
+
+<script>
+/* ---------------- Data ---------------- */
+const LABELS = ["Noun","Verb","Separable verb","Adjective","Adverb","Preposition","Pronoun","Conjunction","Phrase","Other"];
+const BASE = [["arbeiten","to work","","Verb"],["backen","to bake","","Verb"],["begleiten","to accompany","","Verb"],["besprechen","to discuss","🦎 du besprichst","Verb"],["brauchen","to need","","Verb"],["bringen","to bring","","Verb"],["buchstabieren","to spell","Können Sie das buchstabieren?","Verb"],["dürfen","to be allowed to, may (modal)","Darf ich?","Verb"],["empfehlen","to recommend","🦎 du empfiehlst","Verb"],["erklären","to explain","","Verb"],["essen","to eat","🦎 du isst","Verb"],["fahren","to drive / to go (by vehicle)","🦎 du fährst","Verb"],["gefallen","to please","Das gefällt mir. = I like it.","Verb"],["geben","to give","🦎 du gibst","Verb"],["gehen","to go (on foot)","","Verb"],["haben","to have","ich habe, du hast, er hat","Verb"],["heißen","to be called","du heißt","Verb"],["helfen","to help","🦎 du hilfst","Verb"],["hören","to listen / to hear","","Verb"],["kochen","to cook","","Verb"],["kommen (aus)","to come (from)","Ich komme aus Frankreich.","Verb"],["können","can, to be able to (modal)","ich kann, er kann","Verb"],["langweilen","to bore","sich langweilen = to be bored","Verb"],["laufen","to run / to walk","🦎 du läufst","Verb"],["leben","to live (be alive, live a life)","","Verb"],["lernen","to learn","","Verb"],["lesen","to read","🦎 du liest","Verb"],["leuchten","to light up, to glow","","Verb"],["lieben","to love","","Verb"],["machen","to make / to do","","Verb"],["malen","to paint","","Verb"],["möchten","would like (modal)","ich möchte","Verb"],["mögen","to like (modal)","ich mag, er mag","Verb"],["müssen","must, to have to (modal)","ich muss","Verb"],["nehmen","to take","🦎 du nimmst","Verb"],["passen","to fit / to suit","Das passt!","Verb"],["reden","to talk","","Verb"],["rennen","to run (fast)","","Verb"],["riechen","to smell","","Verb"],["riechen nach","to smell like / of","Es riecht nach Kaffee.","Verb"],["schauen","to look","","Verb"],["scheinen","to shine","Die Sonne scheint.","Verb"],["schlafen","to sleep","🦎 du schläfst","Verb"],["schreiben","to write","","Verb"],["sehen","to see","🦎 du siehst","Verb"],["sein","to be","bin, bist, ist, sind, seid, sind","Verb"],["sollen","should, ought to (modal)","","Verb"],["sprechen","to speak","🦎 du sprichst","Verb"],["stören","to disturb","Störe ich?","Verb"],["studieren","to study (at university)","","Verb"],["suchen","to look for / to search","","Verb"],["tanzen","to dance","","Verb"],["tragen","to carry / to wear","🦎 du trägst","Verb"],["treffen","to meet","🦎 du triffst","Verb"],["treiben","to do (sport)","Sport treiben","Verb"],["trinken","to drink","","Verb"],["tun","to do","","Verb"],["vergessen","to forget","🦎 du vergisst","Verb"],["waschen","to wash","🦎 du wäschst","Verb"],["werden","to become","du wirst, er wird","Verb"],["wohnen (in)","to live (in)","Ich wohne in Colmar.","Verb"],["wollen","to want (modal)","⚠️ not “will”","Verb"],["zeichnen","to draw","","Verb"],["zeigen","to show","","Verb"],["ab|fahren","to depart","Der Zug fährt um 8 ab.","Separable verb"],["ab|holen","to pick up","Ich hole dich ab.","Separable verb"],["ab|trocknen","to dry (the dishes)","","Separable verb"],["ab|waschen","to wash up","","Separable verb"],["an|fangen","to begin","Der Film fängt an.","Separable verb"],["an|kommen","to arrive","","Separable verb"],["an|machen","to turn on","Mach das Licht an!","Separable verb"],["an|rufen","to call (phone)","Ich rufe dich an.","Separable verb"],["auf|hängen","to hang up","","Separable verb"],["auf|räumen","to tidy up","","Separable verb"],["auf|stehen","to get up","","Separable verb"],["aus|füllen","to fill out (a form)","","Separable verb"],["aus|leeren","to empty","","Separable verb"],["aus|wählen","to choose","","Separable verb"],["ein|kaufen","to shop","","Separable verb"],["ein|laden","to invite","Ich lade dich ein.","Separable verb"],["ein|schlafen","to fall asleep","","Separable verb"],["fern|sehen","to watch TV","Wir sehen fern.","Separable verb"],["mit|bringen","to bring along","","Separable verb"],["mit|kommen","to come along","Kommst du mit?","Separable verb"],["mit|nehmen","to take along","","Separable verb"],["teil|nehmen","to take part","","Separable verb"],["um|steigen","to change (trains / buses)","","Separable verb"],["vor|bereiten","to prepare","","Separable verb"],["zurück|fahren","to drive / go back","","Separable verb"],["zurück|kommen","to come back","","Separable verb"],["der Kopf","head","","Noun"],["der Mund","mouth","","Noun"],["der Arm","arm","","Noun"],["der Fuß","foot","","Noun"],["der Bauch","belly","","Noun"],["der Magen","stomach","","Noun"],["der Schmerz","pain / ache","pl. die Schmerzen","Noun"],["die Nase","nose","","Noun"],["die Hand","hand","","Noun"],["die Schulter","shoulder","","Noun"],["die Leber","liver","","Noun"],["die Augenbraue","eyebrow","","Noun"],["die Träne","tear (crying)","","Noun"],["das Auge","eye","pl. die Augen","Noun"],["das Ohr","ear","","Noun"],["das Bein","leg","","Noun"],["das Gehirn","brain","","Noun"],["der Hund","dog","","Noun"],["der Elefant","elephant","","Noun"],["der Papagei","parrot","","Noun"],["der Delfin","dolphin","","Noun"],["die Katze","cat","","Noun"],["die Robbe","seal","","Noun"],["die Ziege","goat","","Noun"],["die Qualle","jellyfish","","Noun"],["das Pferd","horse","","Noun"],["das Schaf","sheep","","Noun"],["das Lamm","lamb","","Noun"],["der Reis","rice","","Noun"],["der Pfeffer","pepper","","Noun"],["der Paprika","paprika (spice)","die Paprika = bell pepper","Noun"],["der Curry","curry","also: das Curry","Noun"],["der Zimt","cinnamon","","Noun"],["der Anis","anise","","Noun"],["der Kreuzkümmel","cumin","also: der Cumin","Noun"],["der Safran","saffron","","Noun"],["der Koriander","coriander","","Noun"],["der Dill","dill","","Noun"],["der Rosmarin","rosemary","","Noun"],["der Knoblauch","garlic","","Noun"],["die Kurkuma","turmeric","also: der Kurkuma","Noun"],["die Minze","mint","","Noun"],["die Petersilie","parsley","","Noun"],["die Zwiebel","onion","","Noun"],["die Zutat","ingredient","pl. die Zutaten","Noun"],["die Lebensmittel","food, groceries (pl.)","","Noun"],["das Salz","salt","","Noun"],["das Basilikum","basil","also: der Basilikum","Noun"],["das Gericht","dish, meal","","Noun"],["das Gewürz","spice","pl. die Gewürze","Noun"],["der Wind","wind","","Noun"],["der Nebel","fog","","Noun"],["der Mond","moon","","Noun"],["der Blitz","lightning (also: camera flash)","","Noun"],["der Donner","thunder","","Noun"],["die Sonne","sun","","Noun"],["die Wolke","cloud","","Noun"],["die Kälte","cold, coldness","","Noun"],["die Nässe","wetness","","Noun"],["der Stuhl","chair","","Noun"],["der Schirm","umbrella","","Noun"],["der Kuli","pen","short for der Kugelschreiber","Noun"],["der Kopfhörer","headphones","pl. die Kopfhörer","Noun"],["die Vase","vase","","Noun"],["die Tür","door","","Noun"],["die Uhr","clock / watch","","Noun"],["die Wäsche","laundry","","Noun"],["das Bild","picture, painting","","Noun"],["das Auto","car","","Noun"],["das Haus","house","","Noun"],["das Zuhause","home","","Noun"],["das Fahrrad","bike","lit. “drive-wheel”","Noun"],["der Hunger","hunger","Ich habe Hunger.","Noun"],["der Durst","thirst","Ich habe Durst.","Noun"],["die Angst","fear (everyday word)","Ich habe Angst.","Noun"],["die Furcht","fear (formal, literary)","","Noun"],["die Höhenangst","fear of heights","Höhe = height","Noun"],["die Hoffnung","hope","","Noun"],["die Zeit","time","","Noun"],["das Geld","money","","Noun"],["das Glück","luck, happiness","Viel Glück! = Good luck!","Noun"],["das Trinkgeld","tip (money)","","Noun"],["das Argument","argument (reason)","","Noun"],["der Künstler","artist","die Künstlerin (f)","Noun"],["der Sänger","singer","die Sängerin (f)","Noun"],["der Interpret","performer","","Noun"],["die Kunst","art","","Noun"],["die Ballade","ballad","","Noun"],["das Gedicht","poem","","Noun"],["der Friseur","hairdresser","","Noun"],["der Friseursalon","hair salon","","Noun"],["der Kunde","customer","pl. die Kunden","Noun"],["mein Mann","my husband","","Noun"],["meine Frau","my wife","","Noun"],["mein Freund","my boyfriend","","Noun"],["ein Freund von mir","a friend of mine","","Noun"],["blau","blue","","Adjective"],["rot","red","","Adjective"],["rosa","pink","","Adjective"],["pink","pink (bright)","","Adjective"],["grün","green","","Adjective"],["schwarz","black","","Adjective"],["gelb","yellow","","Adjective"],["lila","purple","","Adjective"],["orange","orange","","Adjective"],["silber","silver","","Adjective"],["gold","gold","","Adjective"],["grau","grey","","Adjective"],["weiß","white","","Adjective"],["braun","brown","","Adjective"],["blond","blond","","Adjective"],["einfach ↔ schwierig","simple, easy ↔ difficult","","Adjective"],["schnell ↔ langsam","fast ↔ slow","","Adjective"],["stark ↔ schwach","strong ↔ weak","","Adjective"],["höflich ↔ unhöflich","polite ↔ impolite","un- = not, like English un-","Adjective"],["formell ↔ informell","formal ↔ informal","","Adjective"],["hoch ↔ niedrig","high ↔ low","","Adjective"],["nett","nice","","Adjective"],["cool","cool","","Adjective"],["lustig","funny","","Adjective"],["witzig","funny, witty","","Adjective"],["süß","cute (also: sweet)","","Adjective"],["schön","pretty, beautiful","","Adjective"],["sympathisch","likeable, pleasant","false friend: not “sympathetic”","Adjective"],["großzügig","generous","","Adjective"],["unabhängig","independent","","Adjective"],["interessant","interesting","","Adjective"],["wichtig","important","","Adjective"],["neu","new","","Adjective"],["gleich","same, similar","","Adjective"],["süß","sweet","","Adjective"],["salzig","salty","das Salz","Adjective"],["sauer","sour","","Adjective"],["bitter","bitter","","Adjective"],["herzhaft","savoury, hearty","Herz = heart","Adjective"],["wolkig","cloudy","die Wolke","Adjective"],["sonnig","sunny","die Sonne","Adjective"],["windig","windy","der Wind","Adjective"],["neblig","foggy","der Nebel","Adjective"],["kalt","cold","die Kälte","Adjective"],["nass","wet","die Nässe","Adjective"],["günstig","cheap, good value","","Adjective"],["gratis","free (of charge)","","Adjective"],["laut","loud","","Adjective"],["kaputt","broken","","Adjective"],["voll","full, crowded","","Adjective"],["allein","alone","","Adjective"],["einsam","lonely","","Adjective"],["groß ↔ klein","tall ↔ short","","Adjective"],["schlank ↔ dick","slim ↔ fat","","Adjective"],["jung ↔ alt","young ↔ old","","Adjective"],["kurz ↔ lang","short ↔ long (hair)","","Adjective"],["lockig / glatt / wellig","curly / straight / wavy (hair)","","Adjective"],["kräftig ↔ schwach","strong, sturdy ↔ weak","","Adjective"],["sportlich / athletisch","sporty / athletic","","Adjective"],["dunkler / heller / blasser Teint","dark / fair / pale complexion","der Teint","Adjective"],["kahl / eine Glatze haben","bald / to be bald","","Adjective"],["der Bart","beard","","Adjective"],["der Schnauzbart","moustache","","Adjective"],["die Adlernase","aquiline nose","Adler = eagle 🦅","Adjective"],["die Hakennase","hooked nose","","Adjective"],["die Stupsnase","snub nose","","Adjective"],["morgens","in the morning(s)","","Adverb"],["mittags","at noon","","Adverb"],["nachmittags","in the afternoon(s)","","Adverb"],["abends","in the evening(s)","","Adverb"],["nachts","at night","","Adverb"],["vorgestern","the day before yesterday","","Adverb"],["morgen","tomorrow","","Adverb"],["übermorgen","the day after tomorrow","","Adverb"],["jetzt","now","","Adverb"],["gerade","right now, just","","Adverb"],["gleich","in a moment, right away","","Adverb"],["später","later","","Adverb"],["immer","always","","Adverb"],["meistens","usually, mostly","","Adverb"],["oft / häufig","often","","Adverb"],["täglich","daily","der Tag","Adverb"],["selten","rarely, seldom","","Adverb"],["nie","never","","Adverb"],["von Zeit zu Zeit","from time to time","","Adverb"],["noch","still / yet","","Adverb"],["viele","many","","Adverb"],["ein paar","a few","not “a pair”!","Adverb"],["fast","almost","false friend: not “fast” (= schnell)","Adverb"],["beide","both","","Adverb"],["nur","only","","Adverb"],["total","totally","","Adverb"],["eher","rather","","Adverb"],["natürlich","naturally, of course","","Adverb"],["bestimmt","certainly, surely","","Adverb"],["beruflich","professionally, for work","","Adverb"],["zusammen = gemeinsam","together","","Adverb"],["leise","quietly","","Adverb"],["hoffentlich","hopefully","die Hoffnung","Adverb"],["selber","yourself, by oneself","","Adverb"],["also","so, therefore","false friend: not “also” (= auch)","Adverb"],["aber","but","","Conjunction"],["denn","because","verb stays in position 2","Conjunction"],["weil","because","verb goes to the end","Conjunction"],["trotzdem","nevertheless, still","","Conjunction"],["nachdem","after (doing something)","verb goes to the end","Conjunction"],["bei + Dativ","at (someone's place), with","bei mir = at my place (French: chez moi)","Preposition"],["gegen + Akkusativ","against","gegen den Wind","Preposition"]];   // [german, english, note, label]
+
+const KEY = "deutsch_macht_spass_v2";   // same storage as the previous app, so saved words are kept
+const S = (()=>{ let d={}; try{ d=JSON.parse(localStorage.getItem(KEY)||"{}")||{}; }catch(e){} return d; })();
+if(!Array.isArray(S.myWords)) S.myWords = [];   // rows: [german, english, note, oldCategory, label]
+function save(){ try{ localStorage.setItem(KEY, JSON.stringify(S)); }catch(e){ toast("Could not save on this device"); } }
+
+/* ---------------- Text helpers ---------------- */
+const escH = s => String(s??"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+const ARTICLE = /^(der|die|das|den|dem|des|ein|eine|einen)\s+/i;
+function fold(s, umlautAsE){
+  s = String(s||"").toLowerCase().replace(/\|/g,"").replace(/ß/g,"ss");
+  s = umlautAsE ? s.replace(/ä/g,"ae").replace(/ö/g,"oe").replace(/ü/g,"ue")
+                : s.replace(/ä/g,"a").replace(/ö/g,"o").replace(/ü/g,"u");
+  return s.replace(/[^a-z0-9\s]/g," ").replace(/\s+/g," ").trim();
+}
+const deKey = de => fold(String(de).trim().replace(ARTICLE,""), true);
+const enKey = en => fold(String(en).trim().replace(/^to\s+/i,""), false);
+function deHTML(de){
+  let h = escH(de).replace(/^(der|die|das)\b/i, a=>`<span class="${a.toLowerCase()}">${a}</span>`);
+  return h.replace(/(^|\s)([a-zäöüß]+)\|/gi, (m,sp,pre)=>`${sp}<span class="pre">${pre}</span>`);
+}
+const speakText = de => String(de).replace(/\|/g,"").replace(/…|\.\.\./g,"").replace(/\s*\/\s*/g,", ").replace(/\+\s*\w+$/,"").trim();
+
+/* ---------------- Automatic label for words saved before labels existed ---------------- */
+const PRONOUNS = "ich du er sie es wir ihr mich dich ihn uns euch mir dir ihm ihnen man jemand niemand etwas nichts alles mein dein sein unser euer".split(" ");
+const PREPS = "in an auf aus bei mit nach von zu seit für gegen ohne um durch über unter vor hinter neben zwischen bis ab".split(" ");
+const CONJ = "und oder aber denn sondern weil dass ob wenn als obwohl damit".split(" ");
+function guessLabel(de, en, oldCat){
+  const d = String(de).trim(), w = d.toLowerCase().replace(/\s*\(.*\)$/,"");
+  if(/\|/.test(d)) return "Separable verb";
+  if(/^(der|die|das)\s+\S+/i.test(d)) return "Noun";
+  if(PRONOUNS.includes(w)) return "Pronoun";
+  if(PREPS.includes(w.split(" ")[0]) && (w.split(" ").length===1 || /\+/.test(w))) return "Preposition";
+  if(CONJ.includes(w)) return "Conjunction";
+  if(/^to\s/i.test(String(en).trim()) || /^verb/i.test(oldCat||"")) return "Verb";
+  if(/\s/.test(w)) return "Phrase";
+  if(/^[a-zäöüß]+(en|ern|eln)$/.test(d)) return "Verb";
+  if(/^[A-ZÄÖÜ]/.test(d)) return "Noun";
+  return "Other";
+}
+let migrated = false;
+const BASE_LABEL = {}; BASE.forEach(r=>String(r[0]).split(/\s*(?:↔|\/|,)\s*/).concat(r[0]).forEach(p=>{ const k=deKey(p); if(k && !BASE_LABEL[k]) BASE_LABEL[k]=r[3]; }));
+S.myWords.forEach(r=>{ if(!LABELS.includes(r[4])){ r[4] = BASE_LABEL[deKey(r[0])] || guessLabel(r[0], r[1], r[3]); migrated = true; } });
+if(migrated) save();
+
+/* ---------------- Index of all words ---------------- */
+let ALL = [];
+function buildIndex(){
+  ALL = BASE.map((r,i)=>({de:r[0], en:r[1], note:r[2], label:r[3], mine:false, id:"b"+i}))
+    .concat(S.myWords.map((r,i)=>({de:r[0], en:r[1], note:r[2]||"", label:r[4], mine:true, id:"m"+i, idx:i})));
+  ALL.forEach(w=>{ w.k = deKey(w.de); w.kA = fold(w.de.replace(ARTICLE,""), false); w.e = enKey(w.en);
+    w.keys = [w.k, ...String(w.de).split(/\s*(?:↔|\/|,)\s*/).map(deKey)].filter(Boolean); });
+  ALL.sort((a,b)=> a.kA.localeCompare(b.kA) || a.de.localeCompare(b.de));
+}
+
+/* ---------------- View state ---------------- */
+let curLabel = "", onlyMine = false, flashId = null;
+
+function cardHTML(w){
+  const deSide = `<div class="de">${deHTML(w.de)}</div>`;
+  const enSide = `<div class="en">${escH(w.en)}</div>${w.note?`<div class="note">${escH(w.note)}</div>`:""}`;
+  const [f,b] = S.mbRev ? [enSide, deSide] : [deSide, enSide];
+  const lab = `<span class="lab">${w.mine?'<span class="mine-dot"></span>':""}${escH(w.label)}</span>`;
+  const say = `<button class="say" data-say="${escH(speakText(w.de))}" aria-label="Listen">🔊</button>`;
+  const acts = w.mine ? `<div class="acts"><button data-edit="${w.idx}" aria-label="Edit">✎</button></div>` : "";
+  return `<div class="card${w.id===flashId?' flash':''}" data-id="${w.id}">${acts}<div class="inner">
+    <div class="face front">${lab}${f}${say}</div><div class="face back">${lab}${b}${say}</div></div></div>`;
+}
+function matches(w, q){
+  if(curLabel && w.label!==curLabel) return false;
+  if(onlyMine && !w.mine) return false;
+  if(!q) return true;
+  const qE = fold(q.replace(ARTICLE,"").replace(/^to\s+/i,""), true), qA = fold(q.replace(ARTICLE,"").replace(/^to\s+/i,""), false);
+  return w.k.includes(qE) || w.kA.includes(qA) || w.e.includes(qA) || fold(w.en,false).includes(qA);
+}
+function render(){
+  const q = document.getElementById("q").value.trim();
+  document.getElementById("qclear").hidden = !q;
+  const pool = ALL.filter(w=>(!onlyMine||w.mine));
+  const counts = {}; pool.forEach(w=>counts[w.label]=(counts[w.label]||0)+1);
+  document.getElementById("chips").innerHTML =
+    `<button class="chip${curLabel?'':' on'}" data-label="">All<small>${pool.length}</small></button>` +
+    LABELS.filter(l=>counts[l]).map(l=>`<button class="chip${curLabel===l?' on':''}" data-label="${l}">${l}<small>${counts[l]}</small></button>`).join("");
+  if(curLabel && !counts[curLabel]) curLabel = "";
+  let list = ALL.filter(w=>matches(w,q));
+  if(q){ const qE=fold(q.replace(ARTICLE,"").replace(/^to\s+/i,""),true), qA=fold(q.replace(ARTICLE,"").replace(/^to\s+/i,""),false);
+    const rank = w => (w.keys.includes(qE)||w.e===qA) ? 0 : (w.k.startsWith(qE)||w.kA.startsWith(qA)||w.e.startsWith(qA)) ? 1 : 2;
+    list = list.map((w,i)=>[rank(w),i,w]).sort((a,b)=>a[0]-b[0]||a[1]-b[1]).map(x=>x[2]); }
+  document.getElementById("grid").innerHTML = list.map(cardHTML).join("");
+  document.getElementById("empty").hidden = list.length>0;
+  const mine = S.myWords.length;
+  document.getElementById("count").textContent = `${ALL.length} words · ${mine} mine`;
+  document.getElementById("mineBtn").classList.toggle("on", onlyMine);
+  document.getElementById("dirBtn").textContent = S.mbRev ? "English first" : "German first";
+}
+
+/* ---------------- Audio ---------------- */
+let deVoice = null;
+function pickVoice(){ const vs = speechSynthesis.getVoices(); deVoice = vs.find(v=>/de[-_]DE/i.test(v.lang)&&/google|natural|neural|premium|enhanced/i.test(v.name)) || vs.find(v=>/^de/i.test(v.lang)) || null; }
+if("speechSynthesis" in window){ pickVoice(); speechSynthesis.onvoiceschanged = pickVoice; }
+function speak(t){
+  if(!("speechSynthesis" in window)){ toast("Audio is not available in this browser"); return; }
+  speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(t); u.lang="de-DE"; u.rate=.9; if(deVoice) u.voice=deVoice; speechSynthesis.speak(u);
+}
+
+/* ---------------- Toast ---------------- */
+let tT; function toast(m){ const t=document.getElementById("toast"); t.textContent=m; t.classList.add("on"); clearTimeout(tT); tT=setTimeout(()=>t.classList.remove("on"),1800); }
+
+/* ---------------- Add / edit sheet ---------------- */
+let editIdx = null, curFormLabel = "", dupAccepted = false;
+const $ = id => document.getElementById(id);
+function renderFormLabels(){
+  $("f-labels").innerHTML = LABELS.map(l=>`<button type="button" class="chip${curFormLabel===l?' on':''}" data-flabel="${l}">${l}</button>`).join("");
+}
+function openSheet(idx){
+  editIdx = (idx==null) ? null : idx; dupAccepted = false;
+  const r = editIdx!=null ? S.myWords[editIdx] : ["","","","",""];
+  $("f-de").value = r[0]; $("f-en").value = r[1]; $("f-note").value = r[2]||"";
+  curFormLabel = editIdx!=null ? r[4] : "";
+  $("sheetTitle").textContent = editIdx!=null ? "Edit word" : "Add a word";
+  $("saveBtn").textContent = editIdx!=null ? "Save" : "Add";
+  $("delBtn").hidden = editIdx==null;
+  renderFormLabels(); $("dupBox").innerHTML = "";
+  $("overlay").hidden = false;
+  setTimeout(()=>$("f-de").focus(), 60);
+  if(editIdx!=null) checkDup(false);
+}
+function closeSheet(){ $("overlay").hidden = true; editIdx = null; }
+function findDups(de){
+  const k = deKey(de); if(!k) return [];
+  return ALL.filter(w=>w.keys.includes(k) && !(w.mine && w.idx===editIdx));
+}
+function dupList(d){ return `<ul>${d.map(w=>`<li>${deHTML(w.de)} — ${escH(w.en)} <span style="color:var(--muted)">(${escH(w.label)}${w.mine?", my word":", built-in"})</span></li>`).join("")}</ul>`; }
+function checkDup(strong){
+  const d = findDups($("f-de").value);
+  if(!d.length){ $("dupBox").innerHTML = ""; return d; }
+  const firstMine = d.find(w=>w.mine);
+  $("dupBox").innerHTML = `<div class="dup"><b>Already in your Memory Book:</b>${dupList(d)}
+    ${strong ? `<div class="choice">
+      <button class="btn sm" id="dupAdd">${editIdx!=null?"Save anyway":"Add anyway"}</button>
+      ${firstMine && editIdx==null ? `<button class="btn sm alt" id="dupEdit" data-i="${firstMine.idx}">Edit the existing one</button>`:""}
+      <button class="btn sm alt" id="dupCancel">Cancel</button></div>` : ""}</div>`;
+  return d;
+}
+function insertCh(ch){
+  const inp = (lastInput && document.body.contains(lastInput)) ? lastInput : $("f-de");
+  const s = inp.selectionStart ?? inp.value.length, e = inp.selectionEnd ?? inp.value.length;
+  inp.value = inp.value.slice(0,s)+ch+inp.value.slice(e); inp.focus(); inp.setSelectionRange(s+1,s+1);
+  if(inp.id==="f-de"){ dupAccepted=false; checkDup(false); }
+}
+let lastInput = null;
+function saveWord(){
+  const de = $("f-de").value.trim(), en = $("f-en").value.trim(), note = $("f-note").value.trim();
+  if(!de){ toast("Write the German word"); $("f-de").focus(); return; }
+  if(!en){ toast("Write the English translation"); $("f-en").focus(); return; }
+  if(!curFormLabel){ toast("Choose the word type"); $("f-labels").scrollIntoView({block:"center",behavior:"smooth"}); return; }
+  if(!dupAccepted && findDups(de).length){ checkDup(true); $("dupBox").scrollIntoView({block:"center",behavior:"smooth"}); return; }
+  let i;
+  if(editIdx!=null){ const old=S.myWords[editIdx]; S.myWords[editIdx]=[de,en,note,old[3]||"",curFormLabel]; i=editIdx; }
+  else { S.myWords.push([de,en,note,"",curFormLabel]); i=S.myWords.length-1; }
+  const wasEdit = editIdx!=null;
+  save(); buildIndex(); closeSheet();
+  flashId = "m"+i;
+  const target = ALL.find(w=>w.id===flashId);
+  if(target && !matches(target, $("q").value.trim())){ $("q").value=""; curLabel=""; }
+  render();
+  const el = document.querySelector(`.card[data-id="${flashId}"]`); if(el) el.scrollIntoView({block:"center",behavior:"smooth"});
+  setTimeout(()=>{ flashId=null; const c=document.querySelector(".card.flash"); if(c) c.classList.remove("flash"); }, 2500);
+  toast(wasEdit ? "Word updated" : "Word added");
+}
+function deleteWord(){
+  if(editIdx==null) return;
+  const r = S.myWords[editIdx];
+  if(!confirm(`Delete “${r[0].replace(/\|/g,"")}”?`)) return;
+  S.myWords.splice(editIdx,1); save(); buildIndex(); closeSheet(); render(); toast("Word deleted");
+}
+
+/* ---------------- Events ---------------- */
+$("letters").innerHTML = ["ä","ö","ü","ß","Ä","Ö","Ü"].map(c=>`<button type="button" data-ch="${c}">${c}</button>`).join("");
+$("q").addEventListener("input", render);
+$("qclear").onclick = ()=>{ $("q").value=""; render(); $("q").focus(); };
+$("mineBtn").onclick = ()=>{ onlyMine=!onlyMine; render(); };
+$("dirBtn").onclick = ()=>{ S.mbRev=!S.mbRev; save(); render(); };
+$("resetBtn").onclick = ()=>document.querySelectorAll(".card.on").forEach(c=>c.classList.remove("on"));
+$("fab").onclick = ()=>openSheet(null);
+$("closeBtn").onclick = $("cancelBtn").onclick = closeSheet;
+$("saveBtn").onclick = saveWord;
+$("delBtn").onclick = deleteWord;
+$("overlay").addEventListener("click", e=>{ if(e.target.id==="overlay") closeSheet(); });
+["f-de","f-en","f-note"].forEach(id=>{
+  $(id).addEventListener("focus", e=>lastInput=e.target);
+  $(id).addEventListener("keydown", e=>{ if(e.key==="Enter"){ e.preventDefault(); id==="f-de"?$("f-en").focus():saveWord(); } });
+});
+$("f-de").addEventListener("input", ()=>{ dupAccepted=false; checkDup(false); });
+document.addEventListener("keydown", e=>{ if(e.key==="Escape" && !$("overlay").hidden) closeSheet(); });
+document.addEventListener("click", e=>{
+  const t = e.target;
+  const say = t.closest(".say"); if(say){ e.stopPropagation(); speak(say.dataset.say); return; }
+  const ed = t.closest("[data-edit]"); if(ed){ openSheet(+ed.dataset.edit); return; }
+  const ch = t.closest("[data-ch]"); if(ch){ e.preventDefault(); insertCh(ch.dataset.ch); return; }
+  const fl = t.closest("[data-flabel]"); if(fl){ curFormLabel=fl.dataset.flabel; renderFormLabels(); return; }
+  const lb = t.closest("[data-label]"); if(lb){ curLabel=lb.dataset.label; render(); return; }
+  if(t.id==="dupAdd"){ dupAccepted=true; saveWord(); return; }
+  if(t.id==="dupEdit"){ openSheet(+t.dataset.i); return; }
+  if(t.id==="dupCancel"){ closeSheet(); return; }
+  const card = t.closest(".card"); if(card) card.classList.toggle("on");
+});
+document.addEventListener("mousedown", e=>{ if(e.target.closest("[data-ch]")) e.preventDefault(); });
+
+buildIndex(); render();
+if("serviceWorker" in navigator && location.protocol.startsWith("http")) navigator.serviceWorker.register("sw.js").catch(()=>{});
+</script>
+</body>
+</html>

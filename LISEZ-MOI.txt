@@ -1,0 +1,24 @@
+MEMORY BOOK · DEUTSCH – Application installable (Android, iPhone, ordinateur)
+============================================================================
+
+Contenu du dossier :
+  index.html             l'application (Memory Book : ~300 mots + tes mots)
+  manifest.webmanifest   la fiche de l'application (nom, icône, plein écran)
+  sw.js                  permet de l'utiliser sans connexion
+  icon-*.png             les icônes
+
+METTRE À JOUR TON APPLICATION ACTUELLE
+--------------------------------------
+Remplace les fichiers du dépôt GitHub (ou du site Netlify) par ceux de ce dossier,
+à la même adresse. Tes mots déjà ajoutés sont conservés : ils reçoivent
+automatiquement un type de mot (Noun, Verb…) que tu peux corriger avec ✎.
+Sur le téléphone, ferme et rouvre l'application (deux fois si besoin) pour voir la nouvelle version.
+
+UTILISATION
+-----------
+  • Recherche en allemand ou en anglais (les accents et les articles sont ignorés).
+  • Filtres par type de mot, et « Only my words ».
+  • Bouton + : ajouter un mot (allemand, anglais, note, type de mot).
+    Si le mot existe déjà, l'application le signale et te laisse choisir.
+  • ✎ sur une de tes cartes : modifier ou supprimer.
+  • Les mots sont enregistrés sur l'appareil.
