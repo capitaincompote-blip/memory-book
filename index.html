@@ -106,6 +106,10 @@ main{padding:16px 16px 110px}
 .btn.danger{background:none;color:var(--danger);margin-right:auto;padding-left:0}
 .btn.sm{padding:7px 12px;font-size:.88rem}
 .row .btn.main{flex:1}
+.backup{margin-top:28px;padding:16px 18px;border:1px solid var(--line);border-radius:var(--r);background:var(--card)}
+.backup h3{margin:0 0 6px;font-size:1rem}
+.backup p{margin:0 0 10px;font-size:.88rem;color:var(--muted)}
+.backup .row{margin-top:0}
 #toast{position:fixed;left:50%;bottom:calc(92px + env(safe-area-inset-bottom));transform:translateX(-50%) translateY(10px);background:var(--accent);color:var(--accent-ink);
   padding:9px 16px;border-radius:999px;font-size:.9rem;opacity:0;transition:.25s;pointer-events:none;z-index:40}
 #toast.on{opacity:1;transform:translateX(-50%)}
@@ -135,6 +139,13 @@ select.tbtn{max-width:220px;background:var(--card)}
 <main><div class="wrap">
   <div class="grid" id="grid"></div>
   <p class="empty" id="empty" hidden>No word found.</p>
+  <section class="backup">
+    <h3>Backup</h3>
+    <p>Your words are saved on this device only. Save a backup file from time to time, and use it to restore your words on another phone or browser.</p>
+    <div class="row"><button class="btn" id="backupBtn">Save backup</button><button class="btn alt" id="restoreBtn">Restore</button></div>
+    <p class="hint" id="lastBackup"></p>
+    <input type="file" id="restoreFile" accept=".json,application/json" hidden>
+  </section>
 </div></main>
 
 <button class="fab" id="fab" aria-label="Add a word">+</button>
@@ -417,6 +428,63 @@ $("dirBtn").onclick = ()=>{ S.mbRev=!S.mbRev; save(); render(); };
 $("voiceSel").onchange = e=>{ S.voiceName = e.target.value; save(); loadVoices(); speak("Guten Tag! Ich spreche Deutsch."); };
 $("voiceHelp").onclick = ()=>alertBox(voiceHelpText());
 $("voiceMsg").onclick = ()=>$("voiceMsg").hidden = true;
+/* ---------------- Backup / restore ---------------- */
+function backupData(){
+  return { app:"memory-book", version:1, savedAt:new Date().toISOString(),
+    myWords: S.myWords.map(r=>({de:r[0], en:r[1], note:r[2]||"", label:r[4]})),
+    baseEdit: S.baseEdit, baseDel: S.baseDel };
+}
+function showLastBackup(){
+  $("lastBackup").textContent = S.lastBackup ? "Last backup: " + new Date(S.lastBackup).toLocaleString() : "No backup saved yet.";
+}
+async function saveBackup(){
+  const d = new Date(), stamp = d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+  const name = `memory-book-backup-${stamp}.json`;
+  const blob = new Blob([JSON.stringify(backupData(), null, 1)], {type:"application/json"});
+  const file = new File([blob], name, {type:"application/json"});
+  let done = false;
+  try{
+    if(navigator.canShare && navigator.canShare({files:[file]}) && /Android|iPhone|iPad/i.test(navigator.userAgent)){
+      await navigator.share({files:[file], title:"Memory Book backup"}); done = true;   // save to Drive, Files, e-mail…
+    }
+  }catch(e){ if(e && e.name==="AbortError") return; }
+  if(!done){
+    const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name;
+    document.body.appendChild(a); a.click(); setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+  }
+  S.lastBackup = Date.now(); save(); showLastBackup();
+  toast(`Backup saved: ${S.myWords.length} words`);
+}
+function restoreBackup(file){
+  const rd = new FileReader();
+  rd.onload = ()=>{
+    let d; try{ d = JSON.parse(rd.result); }catch(e){ toast("This file is not a Memory Book backup"); return; }
+    let rows = [];
+    if(d && Array.isArray(d.myWords)) rows = d.myWords;                       // this app's backup
+    else if(d && d.myWords===undefined && Array.isArray(d)) rows = d;          // bare list
+    else { toast("This file is not a Memory Book backup"); return; }
+    let added = 0, skipped = 0;
+    const have = new Set(S.myWords.map(r=>deKey(r[0])+"|"+enKey(r[1])));
+    rows.forEach(o=>{
+      const r = Array.isArray(o) ? {de:o[0], en:o[1], note:o[2], label:o[4]||o[3]} : o;
+      if(!r || !r.de || !r.en) return;
+      const k = deKey(r.de)+"|"+enKey(r.en);
+      if(have.has(k)){ skipped++; return; }
+      const label = LABELS.includes(r.label) ? r.label : (BASE_LABEL[deKey(r.de)] || guessLabel(r.de, r.en, ""));
+      S.myWords.push([String(r.de), String(r.en), String(r.note||""), "", label]); have.add(k); added++;
+    });
+    if(d.baseEdit && typeof d.baseEdit==="object") Object.assign(S.baseEdit, d.baseEdit);
+    if(Array.isArray(d.baseDel)) d.baseDel.forEach(i=>{ if(!S.baseDel.includes(i)) S.baseDel.push(i); });
+    save(); buildIndex(); render();
+    toast(`Restored: ${added} new word${added===1?"":"s"}` + (skipped?`, ${skipped} already there`:""));
+  };
+  rd.readAsText(file);
+}
+$("backupBtn").onclick = saveBackup;
+$("restoreBtn").onclick = ()=>$("restoreFile").click();
+$("restoreFile").onchange = e=>{ const f = e.target.files[0]; if(f) restoreBackup(f); e.target.value = ""; };
+showLastBackup();
+
 $("resetBtn").onclick = ()=>document.querySelectorAll(".card.on").forEach(c=>c.classList.remove("on"));
 $("fab").onclick = ()=>openSheet(null);
 $("closeBtn").onclick = $("cancelBtn").onclick = closeSheet;
